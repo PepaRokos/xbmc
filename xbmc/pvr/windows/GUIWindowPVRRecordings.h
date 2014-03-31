@@ -51,6 +51,7 @@ namespace PVR
   protected:
     virtual void BeforeUpdate(const CStdString &strDirectory);
     virtual void AfterUpdate(CFileItemList& items);
+    virtual bool OnMessageFocus(CGUIMessage &message);
 
   private:
     bool OnClickButton(CGUIMessage &message);
