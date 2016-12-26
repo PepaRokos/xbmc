@@ -33,6 +33,9 @@
 #include "utils/TimeUtils.h"
 #include "utils/SystemInfo.h"
 #include "utils/MathUtils.h"
+#ifdef TARGET_POSIX
+#include "XTimeUtils.h"
+#endif
 
 static const char* ShaderNames[SM_ESHADERCOUNT] =
     {"guishader_frag_default.glsl",
@@ -50,8 +53,6 @@ static const char* ShaderNames[SM_ESHADERCOUNT] =
 
 CRenderSystemGLES::CRenderSystemGLES()
  : CRenderSystemBase()
- , m_pGUIshader(0)
- , m_method(SM_DEFAULT)
 {
   m_enumRenderingSystem = RENDERING_SYSTEM_OPENGLES;
 }
@@ -150,7 +151,7 @@ bool CRenderSystemGLES::ResetRenderSystem(int width, int height, bool fullScreen
   glEnable(GL_SCISSOR_TEST); 
 
   glMatrixProject.Clear();
-  glMatrixModview->LoadIdentity();
+  glMatrixProject->LoadIdentity();
   glMatrixProject->Ortho(0.0f, width-1, height-1, 0.0f, -1.0f, 1.0f);
   glMatrixProject.Load();
 
@@ -266,19 +267,18 @@ bool CRenderSystemGLES::IsExtSupported(const char* extension)
   }
 }
 
-static int64_t abs64(int64_t a)
+void CRenderSystemGLES::PresentRender(bool rendered, bool videoLayer)
 {
-  if(a < 0)
-    return -a;
-  return a;
-}
+  SetVSync(true);
 
-void CRenderSystemGLES::PresentRender(bool rendered)
-{
   if (!m_bRenderCreated)
     return;
 
   PresentRenderImpl(rendered);
+
+  // if video is rendered to a separate layer, we should not block this thread
+  if (!rendered && !videoLayer)
+    Sleep(40);
 }
 
 void CRenderSystemGLES::SetVSync(bool enable)
@@ -321,7 +321,7 @@ void CRenderSystemGLES::CaptureStateBlock()
 
   glDisable(GL_SCISSOR_TEST); // fixes FBO corruption on Macs
   glActiveTexture(GL_TEXTURE0);
-//TODO - NOTE: Only for Screensavers & Visualisations
+//! @todo - NOTE: Only for Screensavers & Visualisations
 //  glColor3f(1.0, 1.0, 1.0);
 }
 
@@ -652,7 +652,7 @@ GLint CRenderSystemGLES::GUIShaderGetBrightness()
   return -1;
 }
 
-bool CRenderSystemGLES::SupportsStereo(RENDER_STEREO_MODE mode)
+bool CRenderSystemGLES::SupportsStereo(RENDER_STEREO_MODE mode) const
 {
   switch(mode)
   {

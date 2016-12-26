@@ -31,6 +31,7 @@
 #include "GUIDialogNumeric.h"
 #include "GUIDialogOK.h"
 #include "GUIDialogKeyboardGeneric.h"
+#include "ServiceBroker.h"
 #include "settings/Settings.h"
 #include "utils/RegExp.h"
 #include "utils/Variant.h"
@@ -69,6 +70,8 @@ using namespace KODI::MESSAGING;
 CGUIDialogKeyboardGeneric::CGUIDialogKeyboardGeneric()
 : CGUIDialog(WINDOW_DIALOG_KEYBOARD, "DialogKeyboard.xml")
 , CGUIKeyboard()
+, m_num(0)
+, m_listfont(nullptr)
 , m_pCharCallback(NULL)
 {
   m_bIsConfirmed = false;
@@ -129,13 +132,18 @@ void CGUIDialogKeyboardGeneric::OnInitWindow()
   m_currentLayout = 0;
   m_layouts.clear();
   const KeyboardLayouts& keyboardLayouts = CKeyboardLayoutManager::GetInstance().GetLayouts();
-  std::vector<CVariant> layoutNames = CSettings::GetInstance().GetList(CSettings::SETTING_LOCALE_KEYBOARDLAYOUTS);
+  std::vector<CVariant> layoutNames = CServiceBroker::GetSettings().GetList(CSettings::SETTING_LOCALE_KEYBOARDLAYOUTS);
+  std::string activeLayout = CServiceBroker::GetSettings().GetString(CSettings::SETTING_LOCALE_ACTIVEKEYBOARDLAYOUT);
 
   for (std::vector<CVariant>::const_iterator layoutName = layoutNames.begin(); layoutName != layoutNames.end(); ++layoutName)
   {
     KeyboardLayouts::const_iterator keyboardLayout = keyboardLayouts.find(layoutName->asString());
     if (keyboardLayout != keyboardLayouts.end())
+    {
       m_layouts.push_back(keyboardLayout->second);
+      if (layoutName->asString() == activeLayout)
+        m_currentLayout = m_layouts.size() - 1;
+    }
   }
 
   // set alphabetic (capitals)
@@ -522,6 +530,8 @@ void CGUIDialogKeyboardGeneric::OnLayout()
   m_currentLayout++;
   if (m_currentLayout >= m_layouts.size())
     m_currentLayout = 0;
+  CKeyboardLayout layout = m_layouts.empty() ? CKeyboardLayout() : m_layouts[m_currentLayout];
+  CServiceBroker::GetSettings().SetString(CSettings::SETTING_LOCALE_ACTIVEKEYBOARDLAYOUT, layout.GetName());
   UpdateButtons();
 }
 

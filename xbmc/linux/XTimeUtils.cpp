@@ -26,7 +26,7 @@
 #include "threads/Atomics.h"
 #endif
 
-#if defined(TARGET_ANDROID)
+#if defined(TARGET_ANDROID) && !defined(__LP64__)
 #include <time64.h>
 #endif
 
@@ -99,7 +99,7 @@ BOOL   SystemTimeToFileTime(const SYSTEMTIME* lpSystemTime,  LPFILETIME lpFileTi
 {
   static const int dayoffset[12] = {0, 31, 59, 90, 120, 151, 182, 212, 243, 273, 304, 334};
 #if defined(TARGET_DARWIN)
-  static long timegm_lock = 0;
+  static std::atomic_flag timegm_lock = ATOMIC_FLAG_INIT;
 #endif
 
   struct tm sysTime = {};
@@ -121,7 +121,7 @@ BOOL   SystemTimeToFileTime(const SYSTEMTIME* lpSystemTime,  LPFILETIME lpFileTi
   CAtomicSpinLock lock(timegm_lock);
 #endif
 
-#if defined(TARGET_ANDROID)
+#if defined(TARGET_ANDROID) && !defined(__LP64__)
   time64_t t = timegm64(&sysTime);
 #else
   time_t t = timegm(&sysTime);

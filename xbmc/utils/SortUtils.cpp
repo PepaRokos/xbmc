@@ -190,7 +190,7 @@ std::string ByProgramCount(SortAttribute attributes, const SortItem &values)
 
 std::string ByPlaylistOrder(SortAttribute attributes, const SortItem &values)
 {
-  // TODO: Playlist order is hacked into program count variable (not nice, but ok until 2.0)
+  //! @todo Playlist order is hacked into program count variable (not nice, but ok until 2.0)
   return ByProgramCount(attributes, values);
 }
 
@@ -986,6 +986,12 @@ const std::string& TypeToString(const std::map<std::string, T>& typeMap, const T
   return it->first;
 }
 
+/**
+ * @brief Sort methods to translate string values to enum values.
+ *
+ * @warning On string changes, edit __SortBy__ enumerator to have strings right
+ * for documentation!
+ */
 const std::map<std::string, SortBy> sortMethods = {
   { "label",            SortByLabel },
   { "date",             SortByDate },

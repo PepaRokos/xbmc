@@ -278,8 +278,6 @@ void CFileItemHandler::HandleFileItem(const char *ID, bool allowFile, const char
           object["file"] = item->GetVideoInfoTag()->GetPath().c_str();
         if (item->HasMusicInfoTag() && !item->GetMusicInfoTag()->GetURL().empty())
           object["file"] = item->GetMusicInfoTag()->GetURL().c_str();
-        if (item->HasPVRRecordingInfoTag() && !item->GetPVRRecordingInfoTag()->GetPath().empty())
-          object["file"] = item->GetPVRRecordingInfoTag()->GetPath().c_str();
         if (item->HasPVRTimerInfoTag() && !item->GetPVRTimerInfoTag()->m_strFileNameAndPath.empty())
           object["file"] = item->GetPVRTimerInfoTag()->m_strFileNameAndPath.c_str();
 
@@ -399,7 +397,7 @@ bool CFileItemHandler::FillFileItemList(const CVariant &parameterObject, CFileIt
     bool added = false;
     for (int index = 0; index < list.Size(); index++)
     {
-      if (list[index]->GetPath() == file)
+      if (list[index]->GetPath() == file || list[index]->GetMusicInfoTag()->GetURL() == file || list[index]->GetVideoInfoTag()->GetPath() == file)
       {
         added = true;
         break;

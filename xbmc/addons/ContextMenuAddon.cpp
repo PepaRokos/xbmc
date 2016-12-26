@@ -22,8 +22,6 @@
 #include "AddonManager.h"
 #include "ContextMenuManager.h"
 #include "ContextMenuItem.h"
-#include "GUIInfoManager.h"
-#include "interfaces/info/InfoBool.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
 #include <sstream>
@@ -52,7 +50,7 @@ void CContextMenuAddon::ParseMenu(
     menuId = ss.str();
   }
 
-  items.push_back(CContextMenuItem::CreateGroup(menuLabel, parent, menuId));
+  items.push_back(CContextMenuItem::CreateGroup(menuLabel, parent, menuId, props.id));
 
   ELEMENTS subMenus;
   if (CAddonMgr::GetInstance().GetExtElements(elem, "menu", subMenus))
@@ -73,7 +71,7 @@ void CContextMenuAddon::ParseMenu(
       if (!label.empty() && !library.empty() && !visCondition.empty())
       {
         auto menu = CContextMenuItem::CreateItem(label, menuId,
-            URIUtils::AddFileToFolder(props.path, library), g_infoManager.Register(visCondition, 0));
+            URIUtils::AddFileToFolder(props.path, library), visCondition, props.id);
         items.push_back(menu);
       }
     }
@@ -110,8 +108,7 @@ std::unique_ptr<CContextMenuAddon> CContextMenuAddon::FromExtension(AddonProps p
         label = g_localizeStrings.GetAddonString(props.id, atoi(label.c_str()));
 
       CContextMenuItem menuItem = CContextMenuItem::CreateItem(label, parent,
-          URIUtils::AddFileToFolder(props.path, props.libname),
-          g_infoManager.Register(visCondition, 0));
+          URIUtils::AddFileToFolder(props.path, props.libname), visCondition, props.id);
 
       items.push_back(menuItem);
     }
@@ -123,15 +120,6 @@ std::unique_ptr<CContextMenuAddon> CContextMenuAddon::FromExtension(AddonProps p
 CContextMenuAddon::CContextMenuAddon(AddonProps props, std::vector<CContextMenuItem> items)
     : CAddon(std::move(props)), m_items(std::move(items))
 {
-}
-
-std::vector<CContextMenuItem> CContextMenuAddon::GetItems()
-{
-  //Return a copy which owns `this`
-  std::vector<CContextMenuItem> ret = m_items;
-  for (CContextMenuItem& menuItem : ret)
-    menuItem.m_addon = this->shared_from_this();
-  return ret;
 }
 
 }

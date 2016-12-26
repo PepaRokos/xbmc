@@ -46,7 +46,7 @@ void CGUIDialogProgress::Reset()
   m_iCurrent = 0;
   m_iMax = 0;
   m_percentage = 0;
-  m_showProgress = false;
+  m_showProgress = true;
   m_bCanCancel = true;
   SetInvalid();
 }
@@ -64,7 +64,7 @@ void CGUIDialogProgress::Open(const std::string &param /* = "" */)
 
   {
     CSingleLock lock(g_graphicsContext);
-    ShowProgressBar(false);
+    ShowProgressBar(true);
   }
   
   CGUIDialog::Open_Internal(false, param);
@@ -85,15 +85,7 @@ void CGUIDialogProgress::Progress()
 {
   if (m_active)
   {
-    g_windowManager.ProcessRenderLoop();
-  }
-}
-
-void CGUIDialogProgress::ProgressKeys()
-{
-  if (m_active)
-  {
-    g_application.FrameMove(true);
+    ProcessRenderLoop();
   }
 }
 
@@ -207,11 +199,11 @@ void CGUIDialogProgress::Process(unsigned int currentTime, CDirtyRegionList &dir
 
 void CGUIDialogProgress::OnInitWindow()
 {
-  CGUIDialogBoxBase::OnInitWindow();
-
-  SET_CONTROL_VISIBLE(CONTROL_NO_BUTTON);
-  SET_CONTROL_VISIBLE(CONTROL_PROGRESS_BAR);
+  SET_CONTROL_HIDDEN(CONTROL_YES_BUTTON);
+  SET_CONTROL_HIDDEN(CONTROL_CUSTOM_BUTTON);
   SET_CONTROL_FOCUS(CONTROL_NO_BUTTON, 0);
+
+  CGUIDialogBoxBase::OnInitWindow();
 }
 
 int CGUIDialogProgress::GetDefaultLabelID(int controlId) const

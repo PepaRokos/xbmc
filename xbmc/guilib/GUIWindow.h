@@ -154,6 +154,7 @@ public:
   virtual bool IsSoundEnabled() const { return true; };
   virtual CFileItemPtr GetCurrentListItem(int offset = 0) { return CFileItemPtr(); };
   virtual int GetViewContainerID() const { return 0; };
+  virtual int GetViewCount() const { return 0; };
   virtual bool CanBeActivated() const { return true; };
   virtual bool IsActive() const;
   void SetCoordsRes(const RESOLUTION_INFO &res) { m_coordsRes = res; };
@@ -243,7 +244,6 @@ protected:
   bool m_needsScaling;
   bool m_windowLoaded;  // true if the window's xml file has been loaded
   LOAD_TYPE m_loadType;
-  bool m_isDialog;      // true if we have a dialog, false otherwise.
   bool m_dynamicResourceAlloc;
   bool m_closing;
   bool m_active;        // true if window is active or dialog is running

@@ -68,13 +68,13 @@ CFileItemPtr CBlurayDirectory::GetTitle(const BLURAY_TITLE_INFO* title, const st
   path.SetFileName(buf);
   item->SetPath(path.Get());
   int duration = (int)(title->duration / 90000);
-  item->GetVideoInfoTag()->m_duration = duration;
+  item->GetVideoInfoTag()->SetDuration(duration);
   item->GetVideoInfoTag()->m_iTrack = title->playlist;
   buf = StringUtils::Format(label.c_str(), title->playlist);
   item->m_strTitle = buf;
   item->SetLabel(buf);
   chap = StringUtils::Format(g_localizeStrings.Get(25007).c_str(), title->chapter_count, StringUtils::SecondsToTimeString(duration).c_str());
-  item->SetProperty("Addon.Summary", chap);
+  item->SetLabel2(chap);
   item->m_dwSize = 0;
   item->SetIconImage("DefaultVideo.png");
   for(unsigned int i = 0; i < title->clip_count; ++i)

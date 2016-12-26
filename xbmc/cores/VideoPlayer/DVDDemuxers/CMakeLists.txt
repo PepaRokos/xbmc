@@ -1,4 +1,5 @@
-set(SOURCES DVDDemux.cpp
+set(SOURCES DemuxMultiSource.cpp
+            DVDDemux.cpp
             DVDDemuxBXA.cpp
             DVDDemuxCC.cpp
             DVDDemuxCDDA.cpp
@@ -8,7 +9,8 @@ set(SOURCES DVDDemux.cpp
             DVDDemuxVobsub.cpp
             DVDFactoryDemuxer.cpp)
 
-set(HEADERS DVDDemux.h
+set(HEADERS DemuxMultiSource.h
+            DVDDemux.h
             DVDDemuxBXA.h
             DVDDemuxCC.h
             DVDDemuxCDDA.h
@@ -20,12 +22,3 @@ set(HEADERS DVDDemux.h
             DVDFactoryDemuxer.h)
 
 core_add_library(dvddemuxers)
-add_dependencies(dvddemuxers libcpluff)
-
-if(ENABLE_INTERNAL_FFMPEG)
-  add_dependencies(dvddemuxers ffmpeg)
-endif()
-
-if(NOT CORE_SYSTEM_NAME STREQUAL windows)
-  add_dependencies(dvddemuxers dvdnav)
-endif()

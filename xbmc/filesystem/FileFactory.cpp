@@ -18,9 +18,6 @@
  *
  */
 
-#if (defined HAVE_CONFIG_H) && (!defined TARGET_WINDOWS)
-  #include "config.h"
-#endif
 #include "network/Network.h"
 #include "system.h"
 #include "FileFactory.h"
@@ -30,10 +27,8 @@
 #include "win32/Win32File.h"
 #endif // TARGET_WINDOWS
 #include "CurlFile.h"
-#include "HTTPFile.h"
 #include "DAVFile.h"
 #include "ShoutcastFile.h"
-#include "FileReaderFile.h"
 #ifdef HAS_FILESYSTEM_SMB
 #ifdef TARGET_WINDOWS
 #include "win32/Win32SMBFile.h"
@@ -46,9 +41,6 @@
 #endif
 #ifdef HAS_FILESYSTEM
 #include "ISOFile.h"
-#endif
-#ifdef HAS_PVRCLIENTS
-#include "PVRFile.h"
 #endif
 #if defined(TARGET_ANDROID)
 #include "APKFile.h"
@@ -120,7 +112,8 @@ IFile* CFileFactory::CreateLoader(const CURL& url)
   }
   else if (url.IsProtocol("xbt")) return new CXbtFile();
   else if (url.IsProtocol("musicdb")) return new CMusicDatabaseFile();
-  else if (url.IsProtocol("videodb")) return NULL;
+  else if (url.IsProtocol("videodb")) return nullptr;
+  else if (url.IsProtocol("library")) return nullptr;
   else if (url.IsProtocol("special")) return new CSpecialProtocolFile();
   else if (url.IsProtocol("multipath")) return new CMultiPathFile();
   else if (url.IsProtocol("image")) return new CImageFile();
@@ -129,7 +122,6 @@ IFile* CFileFactory::CreateLoader(const CURL& url)
 #elif defined(TARGET_WINDOWS)
   else if (url.IsProtocol("file") || url.GetProtocol().empty()) return new CWin32File();
 #endif // TARGET_WINDOWS 
-  else if (url.IsProtocol("filereader")) return new CFileReaderFile();
 #if defined(HAS_FILESYSTEM_CDDA) && defined(HAS_DVD_DRIVE)
   else if (url.IsProtocol("cdda")) return new CFileCDDA();
 #endif
@@ -151,8 +143,9 @@ IFile* CFileFactory::CreateLoader(const CURL& url)
   {
     if (url.IsProtocol("ftp")
     ||  url.IsProtocol("ftps")
-    ||  url.IsProtocol("rss")) return new CCurlFile();
-    else if (url.IsProtocol("http") ||  url.IsProtocol("https")) return new CHTTPFile();
+    ||  url.IsProtocol("rss")
+    ||  url.IsProtocol("http") 
+    ||  url.IsProtocol("https")) return new CCurlFile();
     else if (url.IsProtocol("dav") || url.IsProtocol("davs")) return new CDAVFile();
 #ifdef HAS_FILESYSTEM_SFTP
     else if (url.IsProtocol("sftp") || url.IsProtocol("ssh")) return new CSFTPFile();
@@ -164,9 +157,6 @@ IFile* CFileFactory::CreateLoader(const CURL& url)
 #else
     else if (url.IsProtocol("smb")) return new CSMBFile();
 #endif
-#endif
-#ifdef HAS_PVRCLIENTS
-    else if (url.IsProtocol("pvr")) return new CPVRFile();
 #endif
 #ifdef HAS_FILESYSTEM_NFS
     else if (url.IsProtocol("nfs")) return new CNFSFile();

@@ -47,6 +47,8 @@
  */
 
 #pragma once
+#define HAVE_INTTYPES_H 1
+
 #include <jni.h>
 #include <string>
 #include "jutils.hpp"
@@ -75,6 +77,52 @@ template <typename T>
 struct jcast_helper<std::vector<T>, jobjectArray>
 {
     static std::vector<T> cast(jobjectArray const &v);
+};
+
+template <>
+struct jcast_helper<std::vector<int>, jintArray>
+{
+    static std::vector<int> cast(jintArray const &v)
+    {
+        JNIEnv *env = xbmc_jnienv();
+        jsize size = 0;
+        if(v)
+            size = env->GetArrayLength(v);
+
+        std::vector<int> vec;
+        vec.reserve(size);
+
+        int *elements = env->GetIntArrayElements(v, NULL);
+        for (int i = 0; i < size; i++)
+        {
+            vec.emplace_back(elements[i]);
+        }
+        env->ReleaseIntArrayElements(v, elements, JNI_ABORT);
+        return vec;
+    }
+};
+
+template <>
+struct jcast_helper<std::vector<int64_t>, jlongArray>
+{
+    static std::vector<int64_t> cast(jlongArray const &v)
+    {
+        JNIEnv *env = xbmc_jnienv();
+        jsize size = 0;
+        if(v)
+            size = env->GetArrayLength(v);
+
+        std::vector<int64_t> vec;
+        vec.reserve(size);
+
+        int64_t *elements = env->GetLongArrayElements(v, NULL);
+        for (int i = 0; i < size; i++)
+        {
+            vec.emplace_back(elements[i]);
+        }
+        env->ReleaseLongArrayElements(v, elements, JNI_ABORT);
+        return vec;
+    }
 };
 
 template <>
@@ -136,6 +184,24 @@ struct jcast_helper<std::vector<T>, jhobjectArray>
     static std::vector<T> cast(jhobjectArray const &v)
     {
         return jcast_helper<std::vector<T>, jobjectArray>::cast(v.get());
+    }
+};
+
+template <>
+struct jcast_helper<std::vector<int>, jhintArray>
+{
+    static std::vector<int> cast(jhintArray const &v)
+    {
+        return jcast_helper<std::vector<int>, jintArray>::cast(v.get());
+    }
+};
+
+template <>
+struct jcast_helper<std::vector<int64_t>, jhlongArray>
+{
+    static std::vector<int64_t> cast(jhlongArray const &v)
+    {
+        return jcast_helper<std::vector<int64_t>, jlongArray>::cast(v.get());
     }
 };
 
@@ -479,6 +545,12 @@ Ret get_field(const char *clsname, const char *name)
 // Get static field
 
 template <typename Ret>
+Ret get_static_field(JNIEnv *env, jhclass const &cls, jfieldID fid)
+{
+    return details::jni_helper<Ret>::get_static_field(env, cls, fid);
+}
+
+template <typename Ret>
 Ret get_static_field(JNIEnv *env, jhobject const &obj, const char *name, const char *signature)
 {
     return details::jni_helper<Ret>::get_static_field(env, get_class(env, obj), get_static_field_id(env, obj, name, signature));
@@ -487,7 +559,7 @@ Ret get_static_field(JNIEnv *env, jhobject const &obj, const char *name, const c
 template <typename Ret>
 Ret get_static_field(JNIEnv *env, jhclass const &cls, const char *name, const char *signature)
 {
-    return details::jni_helper<Ret>::get_static_field(env, cls, get_static_field_id(env, cls, name, signature));
+    return get_static_field<Ret>(env, cls, get_static_field_id(env, cls, name, signature));
 }
 
 template <typename Ret, typename T>
@@ -531,6 +603,13 @@ Ret get_static_field(const char *clsname, const char *name)
 {
     return get_static_field<Ret>(xbmc_jnienv(), clsname, name);
 }
+
+template <typename Ret>
+Ret get_static_field(jhclass const &cls, jfieldID fid)
+{
+    return details::jni_helper<Ret>::get_static_field(xbmc_jnienv(), cls, fid);
+}
+
 
 // Set field
 

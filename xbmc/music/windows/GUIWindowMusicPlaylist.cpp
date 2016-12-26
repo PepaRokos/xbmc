@@ -20,18 +20,20 @@
 
 #include "GUIWindowMusicPlaylist.h"
 #include "dialogs/GUIDialogSmartPlaylistEditor.h"
+#include "view/GUIViewState.h"
 #include "Util.h"
 #include "playlists/PlayListM3U.h"
 #include "Application.h"
 #include "PlayListPlayer.h"
 #include "PartyModeManager.h"
+#include "ServiceBroker.h"
+#include "cores/playercorefactory/PlayerCoreFactory.h"
 #include "utils/LabelFormatter.h"
 #include "music/tags/MusicInfoTag.h"
 #include "guilib/GUIWindowManager.h"
 #include "guilib/GUIKeyboardFactory.h"
 #include "input/Key.h"
 #include "GUIUserMessages.h"
-#include "ContextMenuManager.h"
 #include "filesystem/FavouritesDirectory.h"
 #include "profiles/ProfilesManager.h"
 #include "settings/MediaSettings.h"
@@ -107,7 +109,7 @@ bool CGUIWindowMusicPlayList::OnMessage(CGUIMessage& message)
   case GUI_MSG_WINDOW_INIT:
     {
       // Setup item cache for tagloader
-      m_musicInfoLoader.UseCacheOnHD("special://temp/MusicPlaylist.fi");
+      m_musicInfoLoader.UseCacheOnHD("special://temp/archive_cache/MusicPlaylist.fi");
 
       m_vecItems->SetPath("playlistmusic://");
 
@@ -141,7 +143,7 @@ bool CGUIWindowMusicPlayList::OnMessage(CGUIMessage& message)
         {
           g_playlistPlayer.SetShuffle(PLAYLIST_MUSIC, !(g_playlistPlayer.IsShuffled(PLAYLIST_MUSIC)));
           CMediaSettings::GetInstance().SetMusicPlaylistShuffled(g_playlistPlayer.IsShuffled(PLAYLIST_MUSIC));
-          CSettings::GetInstance().Save();
+          CServiceBroker::GetSettings().Save();
           UpdateButtons();
           Refresh();
         }
@@ -191,7 +193,7 @@ bool CGUIWindowMusicPlayList::OnMessage(CGUIMessage& message)
 
         // save settings
         CMediaSettings::GetInstance().SetMusicPlaylistRepeat(g_playlistPlayer.GetRepeat(PLAYLIST_MUSIC) == PLAYLIST::REPEAT_ALL);
-        CSettings::GetInstance().Save();
+        CServiceBroker::GetSettings().Save();
 
         UpdateButtons();
       }
@@ -286,10 +288,12 @@ void CGUIWindowMusicPlayList::SavePlayList()
   if (CGUIKeyboardFactory::ShowAndGetInput(strNewFileName, CVariant{g_localizeStrings.Get(16012)}, false))
   {
     // need 2 rename it
-    std::string strFolder = URIUtils::AddFileToFolder(CSettings::GetInstance().GetString(CSettings::SETTING_SYSTEM_PLAYLISTSPATH), "music");
     strNewFileName = CUtil::MakeLegalFileName(strNewFileName);
     strNewFileName += ".m3u";
-    std::string strPath = URIUtils::AddFileToFolder(strFolder, strNewFileName);
+    std::string strPath = URIUtils::AddFileToFolder(
+      CServiceBroker::GetSettings().GetString(CSettings::SETTING_SYSTEM_PLAYLISTSPATH),
+      "music",
+      strNewFileName);
 
     // get selected item
     int iItem = m_viewControl.GetSelectedItem();
@@ -447,9 +451,9 @@ void CGUIWindowMusicPlayList::OnItemLoaded(CFileItem* pItem)
 {
   if (pItem->HasMusicInfoTag() && pItem->GetMusicInfoTag()->Loaded())
   { // set label 1+2 from tags
-    std::string strTrack=CSettings::GetInstance().GetString(CSettings::SETTING_MUSICFILES_NOWPLAYINGTRACKFORMAT);
+    std::string strTrack=CServiceBroker::GetSettings().GetString(CSettings::SETTING_MUSICFILES_NOWPLAYINGTRACKFORMAT);
     if (strTrack.empty())
-      strTrack = CSettings::GetInstance().GetString(CSettings::SETTING_MUSICFILES_TRACKFORMAT);
+      strTrack = CServiceBroker::GetSettings().GetString(CSettings::SETTING_MUSICFILES_TRACKFORMAT);
     CLabelFormatter formatter(strTrack, "%D");
     formatter.FormatLabels(pItem);
   } // if (pItem->m_musicInfoTag.Loaded())
@@ -517,7 +521,6 @@ void CGUIWindowMusicPlayList::GetContextButtons(int itemNumber, CContextButtons 
       if (players.size() > 1)
         buttons.Add(CONTEXT_BUTTON_PLAY_WITH, 15213); // Play With...
 
-      buttons.Add(CONTEXT_BUTTON_SONG_INFO, 658); // Song Info
       if (XFILE::CFavouritesDirectory::IsFavourite(item.get(), GetID()))
         buttons.Add(CONTEXT_BUTTON_ADD_FAVOURITE, 14077);     // Remove Favourite
       else
@@ -538,9 +541,6 @@ void CGUIWindowMusicPlayList::GetContextButtons(int itemNumber, CContextButtons 
     buttons.Add(CONTEXT_BUTTON_EDIT_PARTYMODE, 21439);
     buttons.Add(CONTEXT_BUTTON_CANCEL_PARTYMODE, 588);      // cancel party mode
   }
-
-  if (itemNumber >= 0 && itemNumber < m_vecItems->Size())
-    CContextMenuManager::GetInstance().AddVisibleItems(m_vecItems->Get(itemNumber), buttons);
 }
 
 bool CGUIWindowMusicPlayList::OnContextButton(int itemNumber, CONTEXT_BUTTON button)

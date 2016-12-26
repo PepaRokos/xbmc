@@ -1,22 +1,23 @@
-enable_language(CXX ASM)
-set(CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS} -x assembler-with-cpp" )
-
 set(SOURCES BaseRenderer.cpp
+            ColorManager.cpp
             OverlayRenderer.cpp
             OverlayRendererGUI.cpp
             OverlayRendererUtil.cpp
             RenderCapture.cpp
             RenderFlags.cpp
-            RenderManager.cpp)
+            RenderManager.cpp
+            DebugRenderer.cpp)
 
 set(HEADERS BaseRenderer.h
+            ColorManager.h
             OverlayRenderer.h
             OverlayRendererGUI.h
             OverlayRendererUtil.h
             RenderCapture.h
             RenderFlags.h
             RenderFormats.h
-            RenderManager.h)
+            RenderManager.h
+            DebugRenderer.h)
 
 if(CORE_SYSTEM_NAME STREQUAL windows)
   list(APPEND SOURCES WinRenderer.cpp
@@ -27,16 +28,20 @@ endif()
 
 if(OPENGL_FOUND)
   list(APPEND SOURCES OverlayRendererGL.cpp
-                      LinuxRendererGL.cpp)
+                      LinuxRendererGL.cpp
+                      FrameBufferObject.cpp)
   list(APPEND HEADERS OverlayRendererGL.h
-                      LinuxRendererGL.h)
+                      LinuxRendererGL.h
+                      FrameBufferObject.h)
 endif()
 
-if(GLES_FOUND)
+if(OPENGLES_FOUND)
   list(APPEND SOURCES LinuxRendererGLES.cpp
-                      OverlayRendererGL.cpp)
+                      OverlayRendererGL.cpp
+                      FrameBufferObject.cpp)
   list(APPEND HEADERS LinuxRendererGLES.h
-                      OverlayRendererGL.h)
+                      OverlayRendererGL.h
+                      FrameBufferObject.cpp)
 endif()
 
 if(ARCH MATCHES arm)
@@ -45,7 +50,3 @@ if(ARCH MATCHES arm)
 endif()
 
 core_add_library(videorenderers)
-
-if(ENABLE_INTERNAL_FFMPEG)
-  add_dependencies(videorenderers ffmpeg)
-endif()

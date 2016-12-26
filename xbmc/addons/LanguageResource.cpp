@@ -19,6 +19,7 @@
 */
 #include "LanguageResource.h"
 #include "LangInfo.h"
+#include "ServiceBroker.h"
 #include "addons/AddonManager.h"
 #include "dialogs/GUIDialogKaiToast.h"
 #include "guilib/GUIWindowManager.h"
@@ -128,7 +129,7 @@ CLanguageResource::CLanguageResource(
 
 bool CLanguageResource::IsInUse() const
 {
-  return StringUtils::EqualsNoCase(CSettings::GetInstance().GetString(CSettings::SETTING_LOCALE_LANGUAGE), ID());
+  return StringUtils::EqualsNoCase(CServiceBroker::GetSettings().GetString(CSettings::SETTING_LOCALE_LANGUAGE), ID());
 }
 
 void CLanguageResource::OnPostInstall(bool update, bool modal)
@@ -147,7 +148,7 @@ void CLanguageResource::OnPostInstall(bool update, bool modal)
     if (IsInUse())
       g_langInfo.SetLanguage(ID());
     else
-      CSettings::GetInstance().SetString(CSettings::SETTING_LOCALE_LANGUAGE, ID());
+      CServiceBroker::GetSettings().SetString(CSettings::SETTING_LOCALE_LANGUAGE, ID());
   }
 }
 
@@ -195,7 +196,7 @@ bool CLanguageResource::FindLanguageAddonByName(const std::string &legacyLanguag
   VECADDONS addons;
   if (!languageAddons.empty())
     addons = languageAddons;
-  else if (!CAddonMgr::GetInstance().GetAddons(addons, ADDON_RESOURCE_LANGUAGE) || addons.empty())
+  else if (!CAddonMgr::GetInstance().GetInstalledAddons(addons, ADDON_RESOURCE_LANGUAGE) || addons.empty())
     return false;
 
   // try to find a language that matches the old language in name or id

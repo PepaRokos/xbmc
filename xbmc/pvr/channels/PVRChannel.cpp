@@ -18,7 +18,7 @@
  *
  */
 
-#include "FileItem.h"
+#include "PVRChannel.h"
 #include "epg/EpgContainer.h"
 #include "filesystem/File.h"
 #include "guilib/LocalizeStrings.h"
@@ -28,11 +28,9 @@
 #include "utils/Variant.h"
 
 #include "pvr/PVRDatabase.h"
-#include "pvr/PVRManager.h"
 #include "pvr/addons/PVRClients.h"
 #include "pvr/timers/PVRTimers.h"
 
-#include "PVRChannel.h"
 #include "PVRChannelGroupInternal.h"
 
 #include <assert.h>
@@ -137,6 +135,8 @@ void CPVRChannel::Serialize(CVariant& value) const
   epg = GetEPGNext();
   if (epg)
     epg->Serialize(value["broadcastnext"]);
+
+  value["isrecording"] = IsRecording();
 }
 
 /********** XBMC related channel methods **********/
@@ -144,7 +144,7 @@ void CPVRChannel::Serialize(CVariant& value) const
 bool CPVRChannel::Delete(void)
 {
   bool bReturn = false;
-  CPVRDatabase *database = GetPVRDatabase();
+  const CPVRDatabasePtr database(g_PVRManager.GetTVDatabase());
   if (!database)
     return bReturn;
 
@@ -172,7 +172,7 @@ CEpgPtr CPVRChannel::GetEPG(void) const
       iEpgId = m_iEpgId;
   }
 
-  return iEpgId > 0 ? g_EpgContainer.GetById(iEpgId) : NULL;
+  return iEpgId > 0 ? g_EpgContainer.GetById(iEpgId) : CEpgPtr();
 }
 
 bool CPVRChannel::UpdateFromClient(const CPVRChannelPtr &channel)
@@ -218,7 +218,8 @@ bool CPVRChannel::Persist()
       return true;
   }
 
-  if (CPVRDatabase *database = GetPVRDatabase())
+  const CPVRDatabasePtr database(g_PVRManager.GetTVDatabase());
+  if (database)
   {
     bool bReturn = database->Persist(*this) && database->CommitInsertQueries();
     CSingleLock lock(m_critSection);
@@ -368,7 +369,8 @@ bool CPVRChannel::SetLastWatched(time_t iLastWatched)
       m_iLastWatched = iLastWatched;
   }
 
-  if (CPVRDatabase *database = GetPVRDatabase())
+  const CPVRDatabasePtr database(g_PVRManager.GetTVDatabase());
+  if (database)
     return database->UpdateLastWatched(*this);
 
   return false;
@@ -647,6 +649,11 @@ void CPVRChannel::ToSortable(SortItem& sortable, Field field) const
     sortable[FieldChannelName] = m_strChannelName;
   else if (field == FieldChannelNumber)
     sortable[FieldChannelNumber] = m_iCachedChannelNumber;
+  else if (field == FieldLastPlayed)
+  {
+    const CDateTime lastWatched(m_iLastWatched);
+    sortable[FieldLastPlayed] = lastWatched.IsValid() ? lastWatched.GetAsDBDateTime() : StringUtils::Empty;
+  }
 }
 
 int CPVRChannel::ChannelID(void) const
@@ -670,11 +677,6 @@ bool CPVRChannel::IsHidden(void) const
 bool CPVRChannel::IsSubChannel(void) const
 {
   return SubChannelNumber() > 0;
-}
-
-bool CPVRChannel::IsClientSubChannel(void) const
-{
-  return ClientSubChannelNumber() > 0;
 }
 
 std::string CPVRChannel::FormattedChannelNumber(void) const

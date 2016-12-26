@@ -34,9 +34,7 @@ namespace PVR
 
   public:
     CGUIWindowPVRRecordings(bool bRadio);
-    virtual ~CGUIWindowPVRRecordings(void) {};
-
-    static std::string GetResumeString(const CFileItem& item);
+    virtual ~CGUIWindowPVRRecordings(void);
 
     virtual void OnWindowLoaded() override;
     virtual bool OnMessage(CGUIMessage& message) override;
@@ -45,8 +43,6 @@ namespace PVR
     virtual bool OnContextButton(int itemNumber, CONTEXT_BUTTON button) override;
     virtual bool Update(const std::string &strDirectory, bool updateFilterPath = true) override;
     virtual void UpdateButtons(void) override;
-    void UnregisterObservers(void);
-    virtual void ResetObservers(void) override;
 
   protected:
     virtual std::string GetDirectoryPath(void) override;
@@ -54,14 +50,7 @@ namespace PVR
     virtual bool OnMessageFocus(CGUIMessage &message);
 
   private:
-    bool ActionDeleteRecording(CFileItem *item);
-    bool OnContextButtonDelete(CFileItem *item, CONTEXT_BUTTON button);
-    bool OnContextButtonUndelete(CFileItem *item, CONTEXT_BUTTON button);
     bool OnContextButtonDeleteAll(CFileItem *item, CONTEXT_BUTTON button);
-    bool OnContextButtonInfo(CFileItem *item, CONTEXT_BUTTON button);
-    bool OnContextButtonPlay(CFileItem *item, CONTEXT_BUTTON button);
-    bool OnContextButtonRename(CFileItem *item, CONTEXT_BUTTON button);
-    bool OnContextButtonMarkWatched(const CFileItemPtr &item, CONTEXT_BUTTON button);
 
     CStdString m_strSelectedPath;
     CVideoThumbLoader m_thumbLoader;

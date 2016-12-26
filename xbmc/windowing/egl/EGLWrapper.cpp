@@ -24,8 +24,6 @@
 #include <assert.h>
 #if defined(TARGET_ANDROID)
   #include "EGLNativeTypeAndroid.h"
-  #include "EGLNativeTypeAmlAndroid.h"
-  #include "EGLNativeTypeRKAndroid.h"
 #endif
 #if defined(TARGET_RASPBERRY_PI)
   #include "EGLNativeTypeRaspberryPI.h"
@@ -33,7 +31,9 @@
 #if defined(HAS_IMXVPU)
   #include "EGLNativeTypeIMX.h"
 #endif
+#if defined(TARGET_LINUX) && defined(HAS_LIBAMCODEC)
 #include "EGLNativeTypeAmlogic.h"
+#endif
 #include "EGLWrapper.h"
 
 #define CheckError() m_result = eglGetError(); if(m_result != EGL_SUCCESS) CLog::Log(LOGERROR, "EGL error in %s: %x",__FUNCTION__, m_result);
@@ -89,15 +89,12 @@ bool CEGLWrapper::Initialize(const std::string &implementation)
   // that we know will work
   if (
 #if defined(TARGET_ANDROID)
-      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeAmlAndroid>(implementation)) ||
-      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeRKAndroid>(implementation)) ||
-      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeAndroid>(implementation)) ||
-#endif
-#if defined(TARGET_RASPBERRY_PI)
+      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeAndroid>(implementation))
+#elif defined(TARGET_RASPBERRY_PI)
       (nativeGuess = CreateEGLNativeType<CEGLNativeTypeRaspberryPI>(implementation))
 #elif defined(HAS_IMXVPU)
       (nativeGuess = CreateEGLNativeType<CEGLNativeTypeIMX>(implementation))
-#else
+#elif defined(TARGET_LINUX) && defined(HAS_LIBAMCODEC)
       (nativeGuess = CreateEGLNativeType<CEGLNativeTypeAmlogic>(implementation))
 #endif
       )

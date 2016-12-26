@@ -1,13 +1,8 @@
 set(SOURCES Addon.cpp
             AddonBuilder.cpp
-            AddonCallbacksAddon.cpp
-            AddonCallbacksAudioDSP.cpp
-            AddonCallbacksAudioEngine.cpp
-            AddonCallbacksCodec.cpp
-            AddonCallbacks.cpp
-            AddonCallbacksGUI.cpp
-            AddonCallbacksPVR.cpp
+            BinaryAddonCache.cpp
             AddonDatabase.cpp
+            AddonDll.cpp
             AddonInstaller.cpp
             AddonManager.cpp
             AddonStatusHandler.cpp
@@ -16,13 +11,18 @@ set(SOURCES Addon.cpp
             AudioDecoder.cpp
             AudioEncoder.cpp
             ContextMenuAddon.cpp
+            ContextMenus.cpp
+            FilesystemInstaller.cpp
+            GameResource.cpp
             GUIDialogAddonInfo.cpp
             GUIDialogAddonSettings.cpp
             GUIViewStateAddonBrowser.cpp
             GUIWindowAddonBrowser.cpp
             ImageResource.cpp
+            InputStream.cpp
             LanguageResource.cpp
             PluginSource.cpp
+            PVRClient.cpp
             Repository.cpp
             RepositoryUpdater.cpp
             Scraper.cpp
@@ -35,13 +35,8 @@ set(SOURCES Addon.cpp
 
 set(HEADERS Addon.h
             AddonBuilder.h
-            AddonCallbacks.h
-            AddonCallbacksAddon.h
-            AddonCallbacksAudioDSP.h
-            AddonCallbacksAudioEngine.h
-            AddonCallbacksCodec.h
-            AddonCallbacksGUI.h
-            AddonCallbacksPVR.h
+            AddonEvents.h
+            BinaryAddonCache.h
             AddonDatabase.h
             AddonDll.h
             AddonInstaller.h
@@ -52,18 +47,21 @@ set(HEADERS Addon.h
             AudioDecoder.h
             AudioEncoder.h
             ContextMenuAddon.h
+            ContextMenus.h
             DllAddon.h
-            DllAudioDSP.h
             DllLibCPluff.h
-            DllPVRClient.h
+            FilesystemInstaller.h
+            GameResource.h
             GUIDialogAddonInfo.h
             GUIDialogAddonSettings.h
             GUIViewStateAddonBrowser.h
             GUIWindowAddonBrowser.h
             IAddon.h
             ImageResource.h
+            InputStream.h
             LanguageResource.h
             PluginSource.h
+            PVRClient.h
             Repository.h
             RepositoryUpdater.h
             Resource.h
@@ -76,8 +74,3 @@ set(HEADERS Addon.h
             Webinterface.h)
 
 core_add_library(addons)
-add_dependencies(addons libcpluff)
-
-if(ENABLE_INTERNAL_FFMPEG)
-  add_dependencies(addons ffmpeg)
-endif()

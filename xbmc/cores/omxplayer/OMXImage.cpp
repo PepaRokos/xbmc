@@ -18,14 +18,13 @@
  *
  */
 
-#if (defined HAVE_CONFIG_H) && (!defined TARGET_WINDOWS)
-  #include "config.h"
-#elif defined(TARGET_WINDOWS)
+#if defined(TARGET_WINDOWS)
 #include "system.h"
 #endif
 
 #include "OMXImage.h"
 
+#include "ServiceBroker.h"
 #include "utils/log.h"
 #include "linux/XMemUtils.h"
 
@@ -263,7 +262,7 @@ bool COMXImage::AllocTextureInternal(EGLDisplay egl_display, EGLContext egl_cont
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  GLenum type = CSettings::GetInstance().GetBool("videoscreen.textures32") ? GL_UNSIGNED_BYTE:GL_UNSIGNED_SHORT_5_6_5;
+  GLenum type = CServiceBroker::GetSettings().GetBool("videoscreen.textures32") ? GL_UNSIGNED_BYTE:GL_UNSIGNED_SHORT_5_6_5;
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex->width, tex->height, 0, GL_RGB, type, 0);
   tex->egl_image = eglCreateImageKHR(egl_display, egl_context, EGL_GL_TEXTURE_2D_KHR, (EGLClientBuffer)tex->texture, NULL);
   if (!tex->egl_image)
@@ -327,6 +326,7 @@ bool COMXImage::DecodeJpegToTexture(COMXImageFile *file, unsigned int width, uns
   {
     ret = true;
     *userdata = tex;
+    CLog::Log(LOGDEBUG, "%s: decoded %s %dx%d", __func__, file->GetFilename(), width, height);
   }
   else
   {
@@ -909,7 +909,7 @@ bool COMXImageFile::ReadFile(const std::string& inputFile, int orientation)
   OMX_IMAGE_CODINGTYPE eCompressionFormat = GetCodingType(m_width, m_height, orientation);
   if(eCompressionFormat != OMX_IMAGE_CodingJPEG || m_width < 1 || m_height < 1)
   {
-    CLog::Log(LOGDEBUG, "%s::%s %s GetCodingType=0x%x (%dx%x)\n", CLASSNAME, __func__, m_filename, eCompressionFormat, m_width, m_height);
+    CLog::Log(LOGDEBUG, "%s::%s %s GetCodingType=0x%x (%dx%d)\n", CLASSNAME, __func__, m_filename, eCompressionFormat, m_width, m_height);
     return false;
   }
 
@@ -1544,7 +1544,7 @@ bool COMXImageReEnc::HandlePortSettingChange(unsigned int resize_width, unsigned
       }
     }
 
-    // TODO: jpeg decoder can decimate by factors of 2
+    //! @todo jpeg decoder can decimate by factors of 2
     port_def.format.image.eColorFormat = OMX_COLOR_FormatYUV420PackedPlanar;
     if (m_omx_resize.IsInitialized())
       port_def.format.image.nSliceHeight = 16;
@@ -2003,7 +2003,7 @@ bool COMXTexture::HandlePortSettingChange(unsigned int resize_width, unsigned in
     return false;
   }
 
-  // TODO: jpeg decoder can decimate by factors of 2
+  //! @todo jpeg decoder can decimate by factors of 2
   port_def.format.image.eColorFormat = OMX_COLOR_FormatYUV420PackedPlanar;
   port_def.format.image.nSliceHeight = 16;
   port_def.format.image.nStride = 0;

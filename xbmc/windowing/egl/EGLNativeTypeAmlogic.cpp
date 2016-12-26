@@ -23,6 +23,7 @@
 #include "utils/AMLUtils.h"
 #include "utils/StringUtils.h"
 #include "utils/SysfsUtils.h"
+#include "filesystem/SpecialProtocol.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,8 +56,7 @@ bool CEGLNativeTypeAmlogic::CheckCompatibility()
   std::string modalias = "/sys/class/graphics/" + m_framebuffer_name + "/device/modalias";
 
   SysfsUtils::GetString(modalias, name);
-  StringUtils::Trim(name);
-  if (name == "platform:mesonfb")
+  if (name.find("meson") != std::string::npos)
     return true;
   return false;
 }
@@ -153,8 +153,14 @@ bool CEGLNativeTypeAmlogic::SetNativeResolution(const RESOLUTION_INFO &res)
 
 bool CEGLNativeTypeAmlogic::ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions)
 {
-  std::string valstr;
-  SysfsUtils::GetString("/sys/class/amhdmitx/amhdmitx0/disp_cap", valstr);
+  std::string valstr, dcapfile;
+  dcapfile = CSpecialProtocol::TranslatePath("special://home/userdata/disp_cap");
+
+  if (SysfsUtils::GetString(dcapfile, valstr) < 0)
+  {
+    if (SysfsUtils::GetString("/sys/class/amhdmitx/amhdmitx0/disp_cap", valstr) < 0)
+      return false;
+  }
   std::vector<std::string> probe_str = StringUtils::Split(valstr, "\n");
 
   resolutions.clear();

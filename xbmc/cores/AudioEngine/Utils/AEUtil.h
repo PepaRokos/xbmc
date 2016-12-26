@@ -27,22 +27,13 @@ extern "C" {
 #include "libavutil/samplefmt.h"
 }
 
-#ifdef TARGET_WINDOWS
-#if _M_IX86_FP>0 && !defined(__SSE__)
-#define __SSE__
-#if _M_IX86_FP>1 && !defined(__SSE2__)
-#define __SSE2__
-#endif
-#endif
-#endif
-
-#ifdef __SSE__
+#if defined(HAVE_SSE) && defined(__SSE__)
 #include <xmmintrin.h>
 #else
 #define __m128 void
 #endif
 
-#ifdef __SSE2__
+#if defined(HAVE_SSE2) && defined(__SSE2__)
 #include <emmintrin.h>
 #endif
 
@@ -138,7 +129,7 @@ class CAEUtil
 {
 private:
   static unsigned int m_seed;
-  #ifdef __SSE2__
+  #if defined(HAVE_SSE2) && defined(__SSE2__)
     static __m128i m_sseSeed;
   #endif
 
@@ -211,23 +202,15 @@ public:
     return 20*log10(scale);
   }
 
-  #ifdef __SSE__
+  #if defined(HAVE_SSE) && defined(__SSE__)
   static void SSEMulArray     (float *data, const float mul, uint32_t count);
   static void SSEMulAddArray  (float *data, float *add, const float mul, uint32_t count);
   #endif
   static void ClampArray(float *data, uint32_t count);
 
-  /*
-    Rand implementations based on:
-    http://software.intel.com/en-us/articles/fast-random-number-generator-on-the-intel-pentiumr-4-processor/
-    This is NOT safe for crypto work, but perfectly fine for audio usage (dithering)
-  */
-  static float FloatRand1(const float min, const float max);
-  static void  FloatRand4(const float min, const float max, float result[4], __m128 *sseresult = NULL);
-
   static bool S16NeedsByteSwap(AEDataFormat in, AEDataFormat out);
 
-  static uint64_t GetAVChannelLayout(CAEChannelInfo &info);
+  static uint64_t GetAVChannelLayout(const CAEChannelInfo &info);
   static CAEChannelInfo GetAEChannelLayout(uint64_t layout);
   static AVSampleFormat GetAVSampleFormat(AEDataFormat format);
   static uint64_t GetAVChannel(enum AEChannel aechannel);

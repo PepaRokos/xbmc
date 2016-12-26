@@ -3,14 +3,12 @@ set(SOURCES DDSImage.cpp
             DirtyRegionSolvers.cpp
             DirtyRegionTracker.cpp
             FFmpegImage.cpp
-            FrameBufferObject.cpp
             GraphicContext.cpp
             GUIAction.cpp
             GUIAudioManager.cpp
             GUIBaseContainer.cpp
             GUIBorderedImage.cpp
             GUIButtonControl.cpp
-            GUICheckMarkControl.cpp
             GUIColorManager.cpp
             GUIControl.cpp
             GUIControlFactory.cpp
@@ -39,7 +37,6 @@ set(SOURCES DDSImage.cpp
             GUIMessage.cpp
             GUIMoverControl.cpp
             GUIMultiImage.cpp
-            GUIMultiSelectText.cpp
             GUIPanelContainer.cpp
             GUIProgressControl.cpp
             GUIRadioButtonControl.cpp
@@ -47,7 +44,6 @@ set(SOURCES DDSImage.cpp
             GUIResizeControl.cpp
             GUIRSSControl.cpp
             GUIScrollBarControl.cpp
-            GUISelectButtonControl.cpp
             GUISettingsSliderControl.cpp
             GUISliderControl.cpp
             GUISpinControl.cpp
@@ -70,7 +66,6 @@ set(SOURCES DDSImage.cpp
             StereoscopicsManager.cpp
             TextureBundle.cpp
             TextureBundleXBT.cpp
-            TextureBundleXPR.cpp
             Texture.cpp
             TextureManager.cpp
             VisibleEffect.cpp
@@ -84,7 +79,6 @@ set(HEADERS DDSImage.h
             DirtyRegionTracker.h
             DispResource.h
             FFmpegImage.h
-            FrameBufferObject.h
             Geometry.h
             GraphicContext.h
             gui3d.h
@@ -94,7 +88,6 @@ set(HEADERS DDSImage.h
             GUIBorderedImage.h
             GUIButtonControl.h
             GUICallback.h
-            GUICheckMarkControl.h
             GUIColorManager.h
             GUIControl.h
             GUIControlFactory.h
@@ -124,7 +117,6 @@ set(HEADERS DDSImage.h
             GUIMessage.h
             GUIMoverControl.h
             GUIMultiImage.h
-            GUIMultiSelectText.h
             GUIPanelContainer.h
             GUIProgressControl.h
             GUIRadioButtonControl.h
@@ -132,7 +124,6 @@ set(HEADERS DDSImage.h
             GUIResizeControl.h
             GUIRSSControl.h
             GUIScrollBarControl.h
-            GUISelectButtonControl.h
             GUISettingsSliderControl.h
             GUISliderControl.h
             GUISpinControl.h
@@ -163,7 +154,6 @@ set(HEADERS DDSImage.h
             Texture.h
             TextureBundle.h
             TextureBundleXBT.h
-            TextureBundleXPR.h
             TextureManager.h
             TransformMatrix.h
             Tween.h
@@ -183,7 +173,7 @@ if(OPENGL_FOUND)
                       TextureGL.h)
 endif()
 
-if(GLES_FOUND)
+if(OPENGLES_FOUND)
   list(APPEND SOURCES GUIFontTTFGL.cpp
                       GUIShader.cpp
                       GUITextureGLES.cpp
@@ -212,11 +202,6 @@ if(CORE_SYSTEM_NAME STREQUAL windows)
 endif()
 
 core_add_library(guilib)
-add_dependencies(guilib libcpluff)
-
-if(ENABLE_INTERNAL_FFMPEG)
-  add_dependencies(guilib ffmpeg)
-endif()
 
 if(CORE_SYSTEM_NAME STREQUAL windows)
   set(SHADERS_VERTEX guishader_vert.hlsl)
@@ -232,15 +217,28 @@ if(CORE_SYSTEM_NAME STREQUAL windows)
                     guishader_video.hlsl
                     guishader_video_control.hlsl)
   foreach(shader ${SHADERS_VERTEX})
-    add_shader_dx(guilib
-                  ${CORE_SOURCE_DIR}/system/shaders/${shader}
-                  vs_4_0_level_9_1
-                  VS)
+    get_filename_component(file ${shader} NAME_WE)
+    add_custom_command(OUTPUT ${file}.h
+                       COMMAND ${FXC} /Fh ${file}.h /E VS /T vs_4_0_level_9_1 /Vn ${file} /Qstrip_reflect
+                                      ${CMAKE_SOURCE_DIR}/system/shaders/${shader}
+                       DEPENDS ${CMAKE_SOURCE_DIR}/system/shaders/${shader}
+                       COMMENT "FX compile vertex shader ${shader}"
+                       VERBATIM)
+    list(APPEND SHADERS ${file}.h)
   endforeach()
   foreach(shader ${SHADERS_PIXEL})
-    add_shader_dx(guilib
-                  ${CORE_SOURCE_DIR}/system/shaders/${shader}
-                  ps_4_0_level_9_1
-                  PS)
+    get_filename_component(file ${shader} NAME_WE)
+    add_custom_command(OUTPUT ${file}.h
+                       COMMAND ${FXC} /Fh ${file}.h /E PS /T ps_4_0_level_9_1 /Vn ${file} /Qstrip_reflect
+                                      ${CMAKE_SOURCE_DIR}/system/shaders/${shader}
+                       DEPENDS ${CMAKE_SOURCE_DIR}/system/shaders/${shader}
+                       COMMENT "FX compile pixel shader ${shader}"
+                       VERBATIM)
+    list(APPEND SHADERS ${file}.h)
   endforeach()
+
+  add_custom_target(generate_shaders ALL DEPENDS ${SHADERS})
+  set_target_properties(generate_shaders PROPERTIES FOLDER "Build Utilities")
+  target_include_directories(${CORE_LIBRARY} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  add_dependencies(${CORE_LIBRARY} generate_shaders)
 endif()

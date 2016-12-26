@@ -23,7 +23,9 @@
 #include "system.h"
 #include <vector>
 
+#include "ServiceBroker.h"
 #include "Util.h"
+#include "URL.h"
 
 #include "Application.h"
 #include "windowing/WindowingFactory.h"
@@ -178,7 +180,7 @@ bool CScreenshotSurface::capture()
 #ifdef HAS_IMXVPU
   // Captures the current visible framebuffer page and blends it into the
   // captured GL overlay
-  g_IMXContext.CaptureDisplay(m_buffer, m_width, m_height);
+  g_IMXContext.CaptureDisplay(m_buffer, m_width, m_height, true);
 #endif
 
 #else
@@ -195,11 +197,11 @@ void CScreenShot::TakeScreenshot(const std::string &filename, bool sync)
   CScreenshotSurface surface;
   if (!surface.capture())
   {
-    CLog::Log(LOGERROR, "Screenshot %s failed", filename.c_str());
+    CLog::Log(LOGERROR, "Screenshot %s failed", CURL::GetRedacted(filename).c_str());
     return;
   }
 
-  CLog::Log(LOGDEBUG, "Saving screenshot %s", filename.c_str());
+  CLog::Log(LOGDEBUG, "Saving screenshot %s", CURL::GetRedacted(filename).c_str());
 
   //set alpha byte to 0xFF
   for (int y = 0; y < surface.m_height; y++)
@@ -213,7 +215,7 @@ void CScreenShot::TakeScreenshot(const std::string &filename, bool sync)
   if (sync)
   {
     if (!CPicture::CreateThumbnailFromSurface(surface.m_buffer, surface.m_width, surface.m_height, surface.m_stride, filename))
-      CLog::Log(LOGERROR, "Unable to write screenshot %s", filename.c_str());
+      CLog::Log(LOGERROR, "Unable to write screenshot %s", CURL::GetRedacted(filename).c_str());
 
     delete [] surface.m_buffer;
     surface.m_buffer = NULL;
@@ -225,7 +227,7 @@ void CScreenShot::TakeScreenshot(const std::string &filename, bool sync)
     if (fp)
       fclose(fp);
     else
-      CLog::Log(LOGERROR, "Unable to create file %s", filename.c_str());
+      CLog::Log(LOGERROR, "Unable to create file %s", CURL::GetRedacted(filename).c_str());
 
     //write .png file asynchronous with CThumbnailWriter, prevents stalling of the render thread
     //buffer is deleted from CThumbnailWriter
@@ -243,7 +245,7 @@ void CScreenShot::TakeScreenshot()
   std::string strDir;
 
   // check to see if we have a screenshot folder yet
-  CSettingPath *screenshotSetting = (CSettingPath*)CSettings::GetInstance().GetSetting(CSettings::SETTING_DEBUG_SCREENSHOTPATH);
+  CSettingPath *screenshotSetting = (CSettingPath*)CServiceBroker::GetSettings().GetSetting(CSettings::SETTING_DEBUG_SCREENSHOTPATH);
   if (screenshotSetting != NULL)
   {
     strDir = screenshotSetting->GetValue();

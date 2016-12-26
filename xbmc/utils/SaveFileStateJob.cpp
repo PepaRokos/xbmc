@@ -34,7 +34,7 @@
 #include "guilib/GUIWindowManager.h"
 #include "GUIUserMessages.h"
 #include "music/MusicDatabase.h"
-#include "cores/AudioEngine/DSPAddons/ActiveAEDSP.h"
+#include "cores/AudioEngine/Engines/ActiveAE/AudioDSPAddons/ActiveAEDSP.h"
 #include "xbmc/music/tags/MusicInfoTag.h"
 
 bool CSaveFileStateJob::DoWork()
@@ -51,7 +51,7 @@ bool CSaveFileStateJob::DoWork()
       progressTrackingFile = original;
   }
 
-  if (progressTrackingFile != "")
+  if (!progressTrackingFile.empty())
   {
 #ifdef HAS_UPNP
     // checks if UPnP server of this file is available and supports updating
@@ -82,11 +82,7 @@ bool CSaveFileStateJob::DoWork()
 
             // consider this item as played
             videodatabase.IncrementPlayCount(m_item);
-            m_item.GetVideoInfoTag()->m_playCount++;
-
-            // PVR: Set recording's play count on the backend (if supported)
-            if (m_item.HasPVRRecordingInfoTag())
-              m_item.GetPVRRecordingInfoTag()->IncrementPlayCount();
+            m_item.GetVideoInfoTag()->IncrementPlayCount();
 
             m_item.SetOverlayImage(CGUIListItem::ICON_OVERLAY_UNWATCHED, true);
             updateListing = true;
@@ -102,22 +98,14 @@ bool CSaveFileStateJob::DoWork()
           else
             videodatabase.UpdateLastPlayed(m_item);
 
-          if (!m_item.HasVideoInfoTag() || m_item.GetVideoInfoTag()->m_resumePoint.timeInSeconds != m_bookmark.timeInSeconds)
+          if (!m_item.HasVideoInfoTag() || m_item.GetVideoInfoTag()->GetResumePoint().timeInSeconds != m_bookmark.timeInSeconds)
           {
             if (m_bookmark.timeInSeconds <= 0.0f)
               videodatabase.ClearBookMarksOfFile(progressTrackingFile, CBookmark::RESUME);
             else
               videodatabase.AddBookMarkToFile(progressTrackingFile, m_bookmark, CBookmark::RESUME);
             if (m_item.HasVideoInfoTag())
-              m_item.GetVideoInfoTag()->m_resumePoint = m_bookmark;
-
-            // PVR: Set/clear recording's resume bookmark on the backend (if supported)
-            if (m_item.HasPVRRecordingInfoTag())
-            {
-              PVR::CPVRRecordingPtr recording = m_item.GetPVRRecordingInfoTag();
-              recording->SetLastPlayedPosition(m_bookmark.timeInSeconds <= 0.0f ? 0 : (int)m_bookmark.timeInSeconds);
-              recording->m_resumePoint = m_bookmark;
-            }
+              m_item.GetVideoInfoTag()->SetResumePoint(m_bookmark);
 
             // UPnP announce resume point changes to clients
             // however not if playcount is modified as that already announces
@@ -203,7 +191,7 @@ bool CSaveFileStateJob::DoWork()
       }
     }
 
-    if (ActiveAE::CActiveAEDSP::GetInstance().IsProcessing())
+    if (CServiceBroker::GetADSP().IsProcessing())
     {
       std::string redactPath = CURL::GetRedacted(progressTrackingFile);
       CLog::Log(LOGDEBUG, "%s - Saving file state for dsp audio item %s", __FUNCTION__, redactPath.c_str());

@@ -278,12 +278,12 @@ JSONRPC_STATUS CPlayerOperations::PlayPause(const std::string &method, ITranspor
           if (g_application.m_pPlayer->IsPausedPlayback())
             CApplicationMessenger::GetInstance().SendMsg(TMSG_MEDIA_PAUSE);
           else if (g_application.m_pPlayer->GetPlaySpeed() != 1)
-            g_application.m_pPlayer->SetPlaySpeed(1, g_application.IsMutedInternal());
+            g_application.m_pPlayer->SetPlaySpeed(1);
         }
         else if (!g_application.m_pPlayer->IsPausedPlayback())
           CApplicationMessenger::GetInstance().SendMsg(TMSG_MEDIA_PAUSE);
       }
-      result["speed"] = g_application.m_pPlayer->IsPausedPlayback() ? 0 : g_application.m_pPlayer->GetPlaySpeed();
+      result["speed"] = g_application.m_pPlayer->IsPausedPlayback() ? 0 : (int)lrint(g_application.m_pPlayer->GetPlaySpeed());
       return OK;
 
     case Picture:
@@ -338,7 +338,7 @@ JSONRPC_STATUS CPlayerOperations::SetSpeed(const std::string &method, ITransport
           // If the player is paused we first need to unpause
           if (g_application.m_pPlayer->IsPausedPlayback())
             g_application.m_pPlayer->Pause();
-          g_application.m_pPlayer->SetPlaySpeed(speed, g_application.IsMutedInternal());
+          g_application.m_pPlayer->SetPlaySpeed(speed);
         }
         else
           g_application.m_pPlayer->Pause();
@@ -353,7 +353,7 @@ JSONRPC_STATUS CPlayerOperations::SetSpeed(const std::string &method, ITransport
       else
         return InvalidParams;
 
-      result["speed"] = g_application.m_pPlayer->IsPausedPlayback() ? 0 : g_application.m_pPlayer->GetPlaySpeed();
+      result["speed"] = g_application.m_pPlayer->IsPausedPlayback() ? 0 : (int)lrint(g_application.m_pPlayer->GetPlaySpeed());
       return OK;
 
     case Picture:
@@ -571,8 +571,8 @@ JSONRPC_STATUS CPlayerOperations::Open(const std::string &method, ITransportLaye
     if (!g_PVRManager.IsStarted())
       return FailedToExecute;
 
-    CPVRChannelGroupsContainer *channelGroupContainer = g_PVRChannelGroups;
-    if (channelGroupContainer == NULL)
+    CPVRChannelGroupsContainerPtr channelGroupContainer = g_PVRChannelGroups;
+    if (!channelGroupContainer)
       return FailedToExecute;
 
     CPVRChannelPtr channel = channelGroupContainer->GetChannelById((int)parameterObject["item"]["channelid"].asInteger());
@@ -596,8 +596,8 @@ JSONRPC_STATUS CPlayerOperations::Open(const std::string &method, ITransportLaye
     if (!g_PVRManager.IsStarted())
       return FailedToExecute;
 
-    CPVRRecordings *recordingsContainer = g_PVRRecordings;
-    if (recordingsContainer == NULL)
+    CPVRRecordingsPtr recordingsContainer = g_PVRRecordings;
+    if (!recordingsContainer)
       return FailedToExecute;
 
     CFileItemPtr fileItem = recordingsContainer->GetById((int)parameterObject["item"]["recordingid"].asInteger());
@@ -1151,6 +1151,9 @@ JSONRPC_STATUS CPlayerOperations::StartSlideshow(const std::string& path, bool r
   if (!firstPicturePath.empty())
     params.push_back(firstPicturePath);
 
+  // Reset screensaver when started from JSON only to avoid potential conflict with slideshow screensavers
+  g_application.ResetScreenSaver();
+  g_application.WakeUpScreenSaverAndDPMS();
   CGUIMessage msg(GUI_MSG_START_SLIDESHOW, 0, 0, flags);
   msg.SetStringParams(params);
   CApplicationMessenger::GetInstance().SendGUIMessage(msg, WINDOW_SLIDESHOW, true);
@@ -1226,7 +1229,7 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
     {
       case Video:
       case Audio:
-        result = g_application.m_pPlayer->IsPausedPlayback() ? 0 : g_application.m_pPlayer->GetPlaySpeed();
+        result = g_application.m_pPlayer->IsPausedPlayback() ? 0 : (int)lrint(g_application.m_pPlayer->GetPlaySpeed());
         break;
 
       case Picture:

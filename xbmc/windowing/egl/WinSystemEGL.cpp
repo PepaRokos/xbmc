@@ -22,6 +22,7 @@
 #ifdef HAS_EGL
 
 #include "WinSystemEGL.h"
+#include "ServiceBroker.h"
 #include "filesystem/SpecialProtocol.h"
 #include "guilib/GraphicContext.h"
 #include "settings/DisplaySettings.h"
@@ -56,6 +57,7 @@ CWinSystemEGL::CWinSystemEGL() : CWinSystemBase()
 
   m_egl               = NULL;
   m_iVSyncMode        = 0;
+  m_delayDispReset    = false;
 }
 
 CWinSystemEGL::~CWinSystemEGL()
@@ -286,6 +288,19 @@ bool CWinSystemEGL::CreateNewWindow(const std::string& name, bool fullScreen, RE
     return true;
   }
 
+  int delay = CServiceBroker::GetSettings().GetInt("videoscreen.delayrefreshchange");
+  if (delay > 0)
+  {
+    m_delayDispReset = true;
+    m_dispResetTimer.Set(delay * 100);
+  }
+
+  {
+    CSingleLock lock(m_resourceSection);
+    for (std::vector<IDispResource *>::iterator i = m_resources.begin(); i != m_resources.end(); ++i)
+      (*i)->OnLostDisplay();
+  }
+
   m_stereo_mode = stereo_mode;
   m_bFullScreen   = fullScreen;
   // Destroy any existing window
@@ -300,6 +315,7 @@ bool CWinSystemEGL::CreateNewWindow(const std::string& name, bool fullScreen, RE
     return false;
   }
 
+  if (!m_delayDispReset)
   {
     CSingleLock lock(m_resourceSection);
     // tell any shared resources
@@ -333,9 +349,6 @@ bool CWinSystemEGL::DestroyWindow()
 bool CWinSystemEGL::ResizeWindow(int newWidth, int newHeight, int newLeft, int newTop)
 {
   CRenderSystemGLES::ResetRenderSystem(newWidth, newHeight, true, 0);
-  int vsync_mode = CSettings::GetInstance().GetInt(CSettings::SETTING_VIDEOSCREEN_VSYNC);
-  if (vsync_mode != VSYNC_DRIVER)
-    SetVSyncImpl(m_iVSyncMode);
   return true;
 }
 
@@ -343,9 +356,6 @@ bool CWinSystemEGL::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
 {
   CreateNewWindow("", fullScreen, res, NULL);
   CRenderSystemGLES::ResetRenderSystem(res.iWidth, res.iHeight, fullScreen, res.fRefreshRate);
-  int vsync_mode = CSettings::GetInstance().GetInt(CSettings::SETTING_VIDEOSCREEN_VSYNC);
-  if (vsync_mode != VSYNC_DRIVER)
-    SetVSyncImpl(m_iVSyncMode);
   return true;
 }
 
@@ -445,6 +455,14 @@ bool CWinSystemEGL::IsExtSupported(const char* extension)
 
 void CWinSystemEGL::PresentRenderImpl(bool rendered)
 {
+  if (m_delayDispReset && m_dispResetTimer.IsTimePast())
+  {
+    m_delayDispReset = false;
+    CSingleLock lock(m_resourceSection);
+    // tell any shared resources
+    for (std::vector<IDispResource *>::iterator i = m_resources.begin(); i != m_resources.end(); ++i)
+      (*i)->OnResetDisplay();
+  }
   if (!rendered)
     return;
   m_egl->SwapBuffers(m_display, m_surface);

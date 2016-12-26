@@ -23,14 +23,14 @@
 #include "threads/Thread.h"
 #include "IVideoPlayer.h"
 #include "DVDMessageQueue.h"
+#include "DVDStreamInfo.h"
 #include "DVDCodecs/Video/DVDVideoCodec.h"
 #include "DVDClock.h"
 #include "DVDOverlayContainer.h"
 #include "DVDTSCorrection.h"
-#ifdef HAS_VIDEO_PLAYBACK
 #include "cores/VideoPlayer/VideoRenderers/RenderManager.h"
-#endif
 #include "utils/BitstreamStats.h"
+#include <atomic>
 
 class CDemuxStreamVideo;
 
@@ -45,18 +45,15 @@ class CDroppingStats
 {
 public:
   void Reset();
-  void AddOutputDropGain(double pts, double frametime);
+  void AddOutputDropGain(double pts, int frames);
   struct CGain
   {
-    double gain;
+    int frames;
     double pts;
   };
   std::deque<CGain> m_gain;
   double m_totalGain;
-  double m_lastDecoderPts;
   double m_lastPts;
-  unsigned int m_lateFrames;
-  unsigned int m_dropRequests;
 };
 
 class CVideoPlayerVideo : public CThread, public IDVDStreamPlayerVideo
@@ -65,7 +62,8 @@ public:
   CVideoPlayerVideo(CDVDClock* pClock
                  ,CDVDOverlayContainer* pOverlayContainer
                  ,CDVDMessageQueue& parent
-                 ,CRenderManager& renderManager);
+                 ,CRenderManager& renderManager,
+                 CProcessInfo &processInfo);
   virtual ~CVideoPlayerVideo();
 
   bool OpenStream(CDVDStreamInfo &hint);
@@ -82,13 +80,10 @@ public:
   void EnableSubtitle(bool bEnable) { m_bRenderSubs = bEnable; }
   bool IsSubtitleEnabled() { return m_bRenderSubs; }
   void EnableFullscreen(bool bEnable) { m_bAllowFullscreen = bEnable; }
-  double GetDelay() { return m_iVideoDelay; }
-  void SetDelay(double delay) { m_iVideoDelay = delay; }
   double GetSubtitleDelay() { return m_iSubtitleDelay; }
   void SetSubtitleDelay(double delay) { m_iSubtitleDelay = delay; }
-  bool IsStalled() const { return m_stalled; }
-  bool IsEOS() { return false; }
-  bool SubmittedEOS() const { return false; }
+  bool IsStalled() const override { return m_stalled; }
+  bool IsRewindStalled() const override { return m_rewindStalled; }
   double GetCurrentPts();
   double GetOutputDelay(); /* returns the expected delay, from that a packet is put in queue */
   int GetDecoderFreeSpace() { return 0; }
@@ -103,7 +98,6 @@ public:
 
 protected:
 
-  virtual void OnStartup();
   virtual void OnExit();
   virtual void Process();
   bool ProcessDecoderOutput(int &decoderState, double &frametime, double &pts);
@@ -112,18 +106,11 @@ protected:
   void ProcessOverlays(DVDVideoPicture* pSource, double pts);
   void OpenStream(CDVDStreamInfo &hint, CDVDVideoCodec* codec);
 
-  // waits until all available data has been rendered
-  // just waiting for packetqueue should be enough for video
-  void WaitForBuffers()  { m_messageQueue.WaitUntilEmpty(); }
-
   void ResetFrameRateCalc();
   void CalcFrameRate();
-  int CalcDropRequirement(double pts, bool updateOnly);
+  int CalcDropRequirement(double pts);
 
-  double m_iVideoDelay;
   double m_iSubtitleDelay;
-  double m_FlipTimeStamp; // time stamp of last flippage. used to play at a forced framerate
-  double m_FlipTimePts;   // pts of the last flipped page
 
   int m_iLateFrames;
   int m_iDroppedFrames;
@@ -142,11 +129,12 @@ protected:
   bool m_bAllowFullscreen;
   bool m_bRenderSubs;
   float m_fForcedAspectRatio;
-  int m_iNrOfPicturesNotToSkip;
   int m_speed;
-  bool m_stalled;
+  std::atomic_bool m_stalled;
+  std::atomic_bool m_rewindStalled;
+  bool m_paused;
   IDVDStreamPlayer::ESyncState m_syncState;
-  std::string m_codecname;
+  std::atomic_bool m_bAbortOutput;
 
   BitstreamStats m_videoStats;
 

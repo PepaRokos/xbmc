@@ -37,7 +37,6 @@
 
 CWinSystemX11GLContext::CWinSystemX11GLContext()
 {
-  m_pGLContext = NULL;
 }
 
 CWinSystemX11GLContext::~CWinSystemX11GLContext()
@@ -48,7 +47,7 @@ CWinSystemX11GLContext::~CWinSystemX11GLContext()
 void CWinSystemX11GLContext::PresentRenderImpl(bool rendered)
 {
   if (rendered)
-    m_pGLContext->SwapBuffers(m_iVSyncMode);
+    m_pGLContext->SwapBuffers();
   
   if (m_delayDispReset && m_dispResetTimer.IsTimePast())
   {
@@ -62,7 +61,7 @@ void CWinSystemX11GLContext::PresentRenderImpl(bool rendered)
 
 void CWinSystemX11GLContext::SetVSyncImpl(bool enable)
 {
-  m_pGLContext->SetVSync(enable, m_iVSyncMode);
+  m_pGLContext->SetVSync(enable);
 }
 
 bool CWinSystemX11GLContext::IsExtSupported(const char* extension)
@@ -112,7 +111,7 @@ bool CWinSystemX11GLContext::SetWindow(int width, int height, bool fullscreen, c
     RefreshGLContext(m_currentOutput.compare(output) != 0);
     XSync(m_dpy, FALSE);
     g_graphicsContext.Clear(0);
-    g_graphicsContext.Flip(true);
+    g_graphicsContext.Flip(true, false);
     ResetVSync();
 
     m_windowDirty = false;
@@ -164,18 +163,14 @@ bool CWinSystemX11GLContext::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res
 
 bool CWinSystemX11GLContext::DestroyWindowSystem()
 {
-  bool ret;
   m_pGLContext->Destroy();
-  ret = CWinSystemX11::DestroyWindowSystem();
-  return ret;
+  return CWinSystemX11::DestroyWindowSystem();
 }
 
 bool CWinSystemX11GLContext::DestroyWindow()
 {
-  bool ret;
   m_pGLContext->Detach();
-  ret = CWinSystemX11::DestroyWindow();
-  return ret;
+  return CWinSystemX11::DestroyWindow();
 }
 
 XVisualInfo* CWinSystemX11GLContext::GetVisual()

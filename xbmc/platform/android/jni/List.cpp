@@ -23,13 +23,17 @@
 #include "ScanResult.h"
 #include "WifiConfiguration.h"
 #include "ApplicationInfo.h"
+#include "URIPermission.h"
+#include "LinkAddress.h"
+#include "RouteInfo.h"
+#include "InetAddress.h"
 
 #include "jutils/jutils-details.hpp"
 
 using namespace jni;
 
 template <typename T>
-T CJNIList<T>::get(int index)
+T CJNIList<T>::get(int index) const
 {
   return (T)call_method<jhobject>(m_object,
     "get", "(I)Ljava/lang/Object;",
@@ -37,7 +41,7 @@ T CJNIList<T>::get(int index)
 }
 
 template <typename T>
-int CJNIList<T>::size()
+int CJNIList<T>::size() const
 {
   return m_object.get() ? call_method<jint>(m_object,
     "size", "()I") : 0;
@@ -47,3 +51,7 @@ template class CJNIList<CJNIScanResult>;
 template class CJNIList<CJNIWifiConfiguration>;
 template class CJNIList<CJNIApplicationInfo>;
 template class CJNIList<CJNIViewInputDeviceMotionRange>;
+template class CJNIList<CJNIURIPermission>;
+template class CJNIList<CJNILinkAddress>;
+template class CJNIList<CJNIRouteInfo>;
+template class CJNIList<CJNIInetAddress>;

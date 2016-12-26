@@ -30,10 +30,10 @@
 #include "addons/RepositoryUpdater.h"
 #include "addons/Skin.h"
 #include "cores/AudioEngine/AEFactory.h"
-#include "cores/AudioEngine/DSPAddons/ActiveAEDSP.h"
 #include "cores/playercorefactory/PlayerCoreFactory.h"
 #include "cores/VideoPlayer/VideoRenderers/BaseRenderer.h"
 #include "filesystem/File.h"
+#include "games/GameSettings.h"
 #include "guilib/GraphicContext.h"
 #include "guilib/GUIAudioManager.h"
 #include "guilib/GUIFontManager.h"
@@ -63,7 +63,6 @@
 #include "peripherals/Peripherals.h"
 #include "powermanagement/PowerManager.h"
 #include "profiles/ProfilesManager.h"
-#include "pvr/PVRManager.h"
 #include "pvr/PVRSettings.h"
 #include "pvr/windows/GUIWindowPVRGuide.h"
 #include "settings/AdvancedSettings.h"
@@ -107,6 +106,7 @@ const std::string CSettings::SETTING_LOCALE_LANGUAGE = "locale.language";
 const std::string CSettings::SETTING_LOCALE_COUNTRY = "locale.country";
 const std::string CSettings::SETTING_LOCALE_CHARSET = "locale.charset";
 const std::string CSettings::SETTING_LOCALE_KEYBOARDLAYOUTS = "locale.keyboardlayouts";
+const std::string CSettings::SETTING_LOCALE_ACTIVEKEYBOARDLAYOUT = "locale.activekeyboardlayout";
 const std::string CSettings::SETTING_LOCALE_TIMEZONECOUNTRY = "locale.timezonecountry";
 const std::string CSettings::SETTING_LOCALE_TIMEZONE = "locale.timezone";
 const std::string CSettings::SETTING_LOCALE_SHORTDATEFORMAT = "locale.shortdateformat";
@@ -133,7 +133,6 @@ const std::string CSettings::SETTING_VIDEOLIBRARY_SHOWUNWATCHEDPLOTS = "videolib
 const std::string CSettings::SETTING_VIDEOLIBRARY_ACTORTHUMBS = "videolibrary.actorthumbs";
 const std::string CSettings::SETTING_MYVIDEOS_FLATTEN = "myvideos.flatten";
 const std::string CSettings::SETTING_VIDEOLIBRARY_FLATTENTVSHOWS = "videolibrary.flattentvshows";
-const std::string CSettings::SETTING_VIDEOLIBRARY_REMOVE_DUPLICATES = "videolibrary.removeduplicates";
 const std::string CSettings::SETTING_VIDEOLIBRARY_TVSHOWSSELECTFIRSTUNWATCHEDITEM = "videolibrary.tvshowsselectfirstunwatcheditem";
 const std::string CSettings::SETTING_VIDEOLIBRARY_TVSHOWSINCLUDEALLSEASONSANDSPECIALS = "videolibrary.tvshowsincludeallseasonsandspecials";
 const std::string CSettings::SETTING_VIDEOLIBRARY_SHOWALLITEMS = "videolibrary.showallitems";
@@ -161,6 +160,9 @@ const std::string CSettings::SETTING_VIDEOPLAYER_QUITSTEREOMODEONSTOP = "videopl
 const std::string CSettings::SETTING_VIDEOPLAYER_RENDERMETHOD = "videoplayer.rendermethod";
 const std::string CSettings::SETTING_VIDEOPLAYER_HQSCALERS = "videoplayer.hqscalers";
 const std::string CSettings::SETTING_VIDEOPLAYER_USEAMCODEC = "videoplayer.useamcodec";
+const std::string CSettings::SETTING_VIDEOPLAYER_USEAMCODECMPEG2 = "videoplayer.useamcodecmpeg2";
+const std::string CSettings::SETTING_VIDEOPLAYER_USEAMCODECMPEG4 = "videoplayer.useamcodecmpeg4";
+const std::string CSettings::SETTING_VIDEOPLAYER_USEAMCODECH264 = "videoplayer.useamcodech264";
 const std::string CSettings::SETTING_VIDEOPLAYER_USEMEDIACODEC = "videoplayer.usemediacodec";
 const std::string CSettings::SETTING_VIDEOPLAYER_USEMEDIACODECSURFACE = "videoplayer.usemediacodecsurface";
 const std::string CSettings::SETTING_VIDEOPLAYER_USEVDPAU = "videoplayer.usevdpau";
@@ -176,8 +178,7 @@ const std::string CSettings::SETTING_VIDEOPLAYER_PREFERVAAPIRENDER = "videoplaye
 const std::string CSettings::SETTING_VIDEOPLAYER_USEDXVA2 = "videoplayer.usedxva2";
 const std::string CSettings::SETTING_VIDEOPLAYER_USEOMXPLAYER = "videoplayer.useomxplayer";
 const std::string CSettings::SETTING_VIDEOPLAYER_USEOMX = "videoplayer.useomx";
-const std::string CSettings::SETTING_VIDEOPLAYER_USEVIDEOTOOLBOX = "videoplayer.usevideotoolbox";
-const std::string CSettings::SETTING_VIDEOPLAYER_USEVDA = "videoplayer.usevda";
+const std::string CSettings::SETTING_VIDEOPLAYER_USEVTB = "videoplayer.usevtb";
 const std::string CSettings::SETTING_VIDEOPLAYER_USEMMAL = "videoplayer.usemmal";
 const std::string CSettings::SETTING_VIDEOPLAYER_USESTAGEFRIGHT = "videoplayer.usestagefright";
 const std::string CSettings::SETTING_VIDEOPLAYER_LIMITGUIUPDATE = "videoplayer.limitguiupdate";
@@ -216,7 +217,6 @@ const std::string CSettings::SETTING_ACCESSIBILITY_SUBHEARING = "accessibility.s
 const std::string CSettings::SETTING_SCRAPERS_MOVIESDEFAULT = "scrapers.moviesdefault";
 const std::string CSettings::SETTING_SCRAPERS_TVSHOWSDEFAULT = "scrapers.tvshowsdefault";
 const std::string CSettings::SETTING_SCRAPERS_MUSICVIDEOSDEFAULT = "scrapers.musicvideosdefault";
-const std::string CSettings::SETTING_PVRMANAGER_ENABLED = "pvrmanager.enabled";
 const std::string CSettings::SETTING_PVRMANAGER_HIDECONNECTIONLOSTWARNING = "pvrmanager.hideconnectionlostwarning";
 const std::string CSettings::SETTING_PVRMANAGER_SYNCCHANNELGROUPS = "pvrmanager.syncchannelgroups";
 const std::string CSettings::SETTING_PVRMANAGER_BACKENDCHANNELORDER = "pvrmanager.backendchannelorder";
@@ -236,13 +236,14 @@ const std::string CSettings::SETTING_EPG_EPGUPDATE = "epg.epgupdate";
 const std::string CSettings::SETTING_EPG_PREVENTUPDATESWHILEPLAYINGTV = "epg.preventupdateswhileplayingtv";
 const std::string CSettings::SETTING_EPG_IGNOREDBFORCLIENT = "epg.ignoredbforclient";
 const std::string CSettings::SETTING_EPG_RESETEPG = "epg.resetepg";
-const std::string CSettings::SETTING_PVRPLAYBACK_PLAYMINIMIZED = "pvrplayback.playminimized";
+const std::string CSettings::SETTING_PVRPLAYBACK_SWITCHTOFULLSCREEN = "pvrplayback.switchtofullscreen";
 const std::string CSettings::SETTING_PVRPLAYBACK_STARTLAST = "pvrplayback.startlast";
 const std::string CSettings::SETTING_PVRPLAYBACK_SIGNALQUALITY = "pvrplayback.signalquality";
 const std::string CSettings::SETTING_PVRPLAYBACK_SCANTIME = "pvrplayback.scantime";
 const std::string CSettings::SETTING_PVRPLAYBACK_CONFIRMCHANNELSWITCH = "pvrplayback.confirmchannelswitch";
 const std::string CSettings::SETTING_PVRPLAYBACK_CHANNELENTRYTIMEOUT = "pvrplayback.channelentrytimeout";
 const std::string CSettings::SETTING_PVRPLAYBACK_FPS = "pvrplayback.fps";
+const std::string CSettings::SETTING_PVRRECORD_INSTANTRECORDACTION = "pvrrecord.instantrecordaction";
 const std::string CSettings::SETTING_PVRRECORD_INSTANTRECORDTIME = "pvrrecord.instantrecordtime";
 const std::string CSettings::SETTING_PVRRECORD_DEFAULTPRIORITY = "pvrrecord.defaultpriority";
 const std::string CSettings::SETTING_PVRRECORD_DEFAULTLIFETIME = "pvrrecord.defaultlifetime";
@@ -250,6 +251,7 @@ const std::string CSettings::SETTING_PVRRECORD_MARGINSTART = "pvrrecord.marginst
 const std::string CSettings::SETTING_PVRRECORD_MARGINEND = "pvrrecord.marginend";
 const std::string CSettings::SETTING_PVRRECORD_PREVENTDUPLICATEEPISODES = "pvrrecord.preventduplicateepisodes";
 const std::string CSettings::SETTING_PVRRECORD_TIMERNOTIFICATIONS = "pvrrecord.timernotifications";
+const std::string CSettings::SETTING_PVRRECORD_GROUPRECORDINGS = "pvrrecord.grouprecordings";
 const std::string CSettings::SETTING_PVRPOWERMANAGEMENT_ENABLED = "pvrpowermanagement.enabled";
 const std::string CSettings::SETTING_PVRPOWERMANAGEMENT_BACKENDIDLETIME = "pvrpowermanagement.backendidletime";
 const std::string CSettings::SETTING_PVRPOWERMANAGEMENT_SETWAKEUPCMD = "pvrpowermanagement.setwakeupcmd";
@@ -279,7 +281,6 @@ const std::string CSettings::SETTING_MUSICPLAYER_SEEKDELAY = "musicplayer.seekde
 const std::string CSettings::SETTING_MUSICPLAYER_REPLAYGAINTYPE = "musicplayer.replaygaintype";
 const std::string CSettings::SETTING_MUSICPLAYER_REPLAYGAINPREAMP = "musicplayer.replaygainpreamp";
 const std::string CSettings::SETTING_MUSICPLAYER_REPLAYGAINNOGAINPREAMP = "musicplayer.replaygainnogainpreamp";
-const std::string CSettings::SETTING_MUSICPLAYER_REPLAYGAINAVOIDCLIPPING = "musicplayer.replaygainavoidclipping";
 const std::string CSettings::SETTING_MUSICPLAYER_CROSSFADE = "musicplayer.crossfade";
 const std::string CSettings::SETTING_MUSICPLAYER_CROSSFADEALBUMTRACKS = "musicplayer.crossfadealbumtracks";
 const std::string CSettings::SETTING_MUSICPLAYER_VISUALISATION = "musicplayer.visualisation";
@@ -295,7 +296,6 @@ const std::string CSettings::SETTING_AUDIOCDS_TRACKPATHFORMAT = "audiocds.trackp
 const std::string CSettings::SETTING_AUDIOCDS_ENCODER = "audiocds.encoder";
 const std::string CSettings::SETTING_AUDIOCDS_SETTINGS = "audiocds.settings";
 const std::string CSettings::SETTING_AUDIOCDS_EJECTONRIP = "audiocds.ejectonrip";
-const std::string CSettings::SETTING_MYMUSIC_STARTWINDOW = "mymusic.startwindow";
 const std::string CSettings::SETTING_MYMUSIC_SONGTHUMBINVIS = "mymusic.songthumbinvis";
 const std::string CSettings::SETTING_MYMUSIC_DEFAULTLIBVIEW = "mymusic.defaultlibview";
 const std::string CSettings::SETTING_PICTURES_GENERATETHUMBS = "pictures.generatethumbs";
@@ -304,6 +304,7 @@ const std::string CSettings::SETTING_PICTURES_DISPLAYRESOLUTION = "pictures.disp
 const std::string CSettings::SETTING_SLIDESHOW_STAYTIME = "slideshow.staytime";
 const std::string CSettings::SETTING_SLIDESHOW_DISPLAYEFFECTS = "slideshow.displayeffects";
 const std::string CSettings::SETTING_SLIDESHOW_SHUFFLE = "slideshow.shuffle";
+const std::string CSettings::SETTING_SLIDESHOW_HIGHQUALITYDOWNSCALING = "slideshow.highqualitydownscaling";
 const std::string CSettings::SETTING_WEATHER_CURRENTLOCATION = "weather.currentlocation";
 const std::string CSettings::SETTING_WEATHER_ADDON = "weather.addon";
 const std::string CSettings::SETTING_WEATHER_ADDONSETTINGS = "weather.addonsettings";
@@ -341,7 +342,9 @@ const std::string CSettings::SETTING_VIDEOSCREEN_FAKEFULLSCREEN = "videoscreen.f
 const std::string CSettings::SETTING_VIDEOSCREEN_BLANKDISPLAYS = "videoscreen.blankdisplays";
 const std::string CSettings::SETTING_VIDEOSCREEN_STEREOSCOPICMODE = "videoscreen.stereoscopicmode";
 const std::string CSettings::SETTING_VIDEOSCREEN_PREFEREDSTEREOSCOPICMODE = "videoscreen.preferedstereoscopicmode";
-const std::string CSettings::SETTING_VIDEOSCREEN_VSYNC = "videoscreen.vsync";
+const std::string CSettings::SETTING_VIDEOSCREEN_NOOFBUFFERS = "videoscreen.noofbuffers";
+const std::string CSettings::SETTING_VIDEOSCREEN_3DLUT = "videoscreen.cms3dlut";
+const std::string CSettings::SETTING_VIDEOSCREEN_DISPLAYPROFILE = "videoscreen.displayprofile";
 const std::string CSettings::SETTING_VIDEOSCREEN_GUICALIBRATION = "videoscreen.guicalibration";
 const std::string CSettings::SETTING_VIDEOSCREEN_TESTPATTERN = "videoscreen.testpattern";
 const std::string CSettings::SETTING_VIDEOSCREEN_LIMITEDRANGE = "videoscreen.limitedrange";
@@ -352,9 +355,10 @@ const std::string CSettings::SETTING_AUDIOOUTPUT_CONFIG = "audiooutput.config";
 const std::string CSettings::SETTING_AUDIOOUTPUT_SAMPLERATE = "audiooutput.samplerate";
 const std::string CSettings::SETTING_AUDIOOUTPUT_STEREOUPMIX = "audiooutput.stereoupmix";
 const std::string CSettings::SETTING_AUDIOOUTPUT_MAINTAINORIGINALVOLUME = "audiooutput.maintainoriginalvolume";
-const std::string CSettings::SETTING_AUDIOOUTPUT_NORMALIZELEVELS = "audiooutput.normalizelevels";
 const std::string CSettings::SETTING_AUDIOOUTPUT_PROCESSQUALITY = "audiooutput.processquality";
+const std::string CSettings::SETTING_AUDIOOUTPUT_ATEMPOTHRESHOLD = "audiooutput.atempothreshold";
 const std::string CSettings::SETTING_AUDIOOUTPUT_STREAMSILENCE = "audiooutput.streamsilence";
+const std::string CSettings::SETTING_AUDIOOUTPUT_STREAMNOISE = "audiooutput.streamnoise";
 const std::string CSettings::SETTING_AUDIOOUTPUT_DSPADDONSENABLED = "audiooutput.dspaddonsenabled";
 const std::string CSettings::SETTING_AUDIOOUTPUT_DSPSETTINGS = "audiooutput.dspsettings";
 const std::string CSettings::SETTING_AUDIOOUTPUT_DSPRESETDB = "audiooutput.dspresetdb";
@@ -367,9 +371,13 @@ const std::string CSettings::SETTING_AUDIOOUTPUT_EAC3PASSTHROUGH = "audiooutput.
 const std::string CSettings::SETTING_AUDIOOUTPUT_DTSPASSTHROUGH = "audiooutput.dtspassthrough";
 const std::string CSettings::SETTING_AUDIOOUTPUT_TRUEHDPASSTHROUGH = "audiooutput.truehdpassthrough";
 const std::string CSettings::SETTING_AUDIOOUTPUT_DTSHDPASSTHROUGH = "audiooutput.dtshdpassthrough";
+const std::string CSettings::SETTING_AUDIOOUTPUT_VOLUMESTEPS = "audiooutput.volumesteps";
 const std::string CSettings::SETTING_INPUT_PERIPHERALS = "input.peripherals";
 const std::string CSettings::SETTING_INPUT_ENABLEMOUSE = "input.enablemouse";
-const std::string CSettings::SETTING_INPUT_ENABLEJOYSTICK = "input.enablejoystick";
+const std::string CSettings::SETTING_INPUT_ASKNEWCONTROLLERS = "input.asknewcontrollers";
+const std::string CSettings::SETTING_INPUT_CONTROLLERCONFIG = "input.controllerconfig";
+const std::string CSettings::SETTING_INPUT_TESTRUMBLE = "input.testrumble";
+const std::string CSettings::SETTING_INPUT_CONTROLLERPOWEROFF = "input.controllerpoweroff";
 const std::string CSettings::SETTING_INPUT_APPLEREMOTEMODE = "input.appleremotemode";
 const std::string CSettings::SETTING_INPUT_APPLEREMOTEALWAYSON = "input.appleremotealwayson";
 const std::string CSettings::SETTING_INPUT_APPLEREMOTESEQUENCETIME = "input.appleremotesequencetime";
@@ -412,6 +420,21 @@ const std::string CSettings::SETTING_ADDONS_ALLOW_UNKNOWN_SOURCES = "addons.unkn
 const std::string CSettings::SETTING_ADDONS_MANAGE_DEPENDENCIES = "addons.managedependencies";
 const std::string CSettings::SETTING_GENERAL_ADDONFOREIGNFILTER = "general.addonforeignfilter";
 const std::string CSettings::SETTING_GENERAL_ADDONBROKENFILTER = "general.addonbrokenfilter";
+const std::string CSettings::SETTING_SOURCE_VIDEOS = "source.videos";
+const std::string CSettings::SETTING_SOURCE_MUSIC = "source.music";
+const std::string CSettings::SETTING_SOURCE_PICTURES = "source.pictures";
+const std::string CSettings::SETTING_GAMES_KEYBOARD_PLAYERS = "gameskeyboard.keyboardplayers";
+const std::string CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_1 = "gameskeyboard.keyboardplayerconfig1";
+const std::string CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_2 = "gameskeyboard.keyboardplayerconfig2";
+const std::string CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_3 = "gameskeyboard.keyboardplayerconfig3";
+const std::string CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_4 = "gameskeyboard.keyboardplayerconfig4";
+const std::string CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_5 = "gameskeyboard.keyboardplayerconfig5";
+const std::string CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_6 = "gameskeyboard.keyboardplayerconfig6";
+const std::string CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_7 = "gameskeyboard.keyboardplayerconfig7";
+const std::string CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_8 = "gameskeyboard.keyboardplayerconfig8";
+const std::string CSettings::SETTING_GAMES_ENABLE = "gamesgeneral.enable";
+const std::string CSettings::SETTING_GAMES_ENABLEREWIND = "gamesgeneral.enablerewind";
+const std::string CSettings::SETTING_GAMES_REWINDTIME = "gamesgeneral.rewindtime";
 
 CSettings::CSettings()
   : m_initialized(false)
@@ -424,12 +447,6 @@ CSettings::~CSettings()
   Uninitialize();
 
   delete m_settingsManager;
-}
-
-CSettings& CSettings::GetInstance()
-{
-  static CSettings sSettings;
-  return sSettings;
 }
 
 bool CSettings::Initialize()
@@ -549,105 +566,19 @@ void CSettings::Uninitialize()
     return;
 
   // unregister setting option fillers
-  m_settingsManager->UnregisterSettingOptionsFiller("audiocdactions");
-  m_settingsManager->UnregisterSettingOptionsFiller("audiocdencoders");
-  m_settingsManager->UnregisterSettingOptionsFiller("aequalitylevels");
-  m_settingsManager->UnregisterSettingOptionsFiller("audiodevices");
-  m_settingsManager->UnregisterSettingOptionsFiller("audiodevicespassthrough");
-  m_settingsManager->UnregisterSettingOptionsFiller("audiostreamsilence");
-  m_settingsManager->UnregisterSettingOptionsFiller("charsets");
-  m_settingsManager->UnregisterSettingOptionsFiller("epgguideviews");
-  m_settingsManager->UnregisterSettingOptionsFiller("fontheights");
-  m_settingsManager->UnregisterSettingOptionsFiller("fonts");
-  m_settingsManager->UnregisterSettingOptionsFiller("languagenames");
-  m_settingsManager->UnregisterSettingOptionsFiller("refreshchangedelays");
-  m_settingsManager->UnregisterSettingOptionsFiller("refreshrates");
-  m_settingsManager->UnregisterSettingOptionsFiller("regions");
-  m_settingsManager->UnregisterSettingOptionsFiller("shortdateformats");
-  m_settingsManager->UnregisterSettingOptionsFiller("longdateformats");
-  m_settingsManager->UnregisterSettingOptionsFiller("timeformats");
-  m_settingsManager->UnregisterSettingOptionsFiller("24hourclockformats");
-  m_settingsManager->UnregisterSettingOptionsFiller("speedunits");
-  m_settingsManager->UnregisterSettingOptionsFiller("temperatureunits");
-  m_settingsManager->UnregisterSettingOptionsFiller("rendermethods");
-  m_settingsManager->UnregisterSettingOptionsFiller("resolutions");
-  m_settingsManager->UnregisterSettingOptionsFiller("screens");
-  m_settingsManager->UnregisterSettingOptionsFiller("stereoscopicmodes");
-  m_settingsManager->UnregisterSettingOptionsFiller("preferedstereoscopicviewmodes");
-  m_settingsManager->UnregisterSettingOptionsFiller("monitors");
-  m_settingsManager->UnregisterSettingOptionsFiller("videoseeksteps");
-  m_settingsManager->UnregisterSettingOptionsFiller("shutdownstates");
-  m_settingsManager->UnregisterSettingOptionsFiller("startupwindows");
-  m_settingsManager->UnregisterSettingOptionsFiller("audiostreamlanguages");
-  m_settingsManager->UnregisterSettingOptionsFiller("subtitlestreamlanguages");
-  m_settingsManager->UnregisterSettingOptionsFiller("subtitledownloadlanguages");
-  m_settingsManager->UnregisterSettingOptionsFiller("iso6391languages");
-  m_settingsManager->UnregisterSettingOptionsFiller("skincolors");
-  m_settingsManager->UnregisterSettingOptionsFiller("skinfonts");
-  m_settingsManager->UnregisterSettingOptionsFiller("skinthemes");
-#if defined(TARGET_LINUX)
-  m_settingsManager->UnregisterSettingOptionsFiller("timezonecountries");
-  m_settingsManager->UnregisterSettingOptionsFiller("timezones");
-#endif // defined(TARGET_LINUX)
-  m_settingsManager->UnregisterSettingOptionsFiller("verticalsyncs");
-  m_settingsManager->UnregisterSettingOptionsFiller("keyboardlayouts");
-  m_settingsManager->UnregisterSettingOptionsFiller("pvrrecordmargins");
+  UninitializeOptionFillers();
 
   // unregister ISettingCallback implementations
-  m_settingsManager->UnregisterCallback(&CEventLog::GetInstance());
-  m_settingsManager->UnregisterCallback(&g_advancedSettings);
-  m_settingsManager->UnregisterCallback(&CMediaSettings::GetInstance());
-  m_settingsManager->UnregisterCallback(&CDisplaySettings::GetInstance());
-  m_settingsManager->UnregisterCallback(&CSeekHandler::GetInstance());
-  m_settingsManager->UnregisterCallback(&CStereoscopicsManager::GetInstance());
-  m_settingsManager->UnregisterCallback(&g_application);
-  m_settingsManager->UnregisterCallback(&g_audioManager);
-  m_settingsManager->UnregisterCallback(&g_charsetConverter);
-  m_settingsManager->UnregisterCallback(&g_graphicsContext);
-  m_settingsManager->UnregisterCallback(&g_langInfo);
-  m_settingsManager->UnregisterCallback(&CInputManager::GetInstance());
-  m_settingsManager->UnregisterCallback(&CNetworkServices::GetInstance());
-  m_settingsManager->UnregisterCallback(&g_passwordManager);
-  m_settingsManager->UnregisterCallback(&PVR::g_PVRManager);
-  m_settingsManager->UnregisterCallback(&CRssManager::GetInstance());
-  m_settingsManager->UnregisterCallback(&ADDON::CRepositoryUpdater::GetInstance());
-#if defined(TARGET_LINUX)
-  m_settingsManager->UnregisterCallback(&g_timezone);
-#endif // defined(TARGET_LINUX)
-  m_settingsManager->UnregisterCallback(&g_weatherManager);
-  m_settingsManager->UnregisterCallback(&PERIPHERALS::CPeripherals::GetInstance());
-#if defined(TARGET_DARWIN_OSX)
-  m_settingsManager->UnregisterCallback(&XBMCHelper::GetInstance());
-#endif
-  m_settingsManager->UnregisterCallback(&ActiveAE::CActiveAEDSP::GetInstance());
-  m_settingsManager->UnregisterCallback(&CWakeOnAccess::GetInstance());
+  UninitializeISettingCallbacks();
 
   // cleanup the settings manager
   m_settingsManager->Clear();
 
   // unregister ISubSettings implementations
-  m_settingsManager->UnregisterSubSettings(&g_application);
-  m_settingsManager->UnregisterSubSettings(&CDisplaySettings::GetInstance());
-  m_settingsManager->UnregisterSubSettings(&CMediaSettings::GetInstance());
-  m_settingsManager->UnregisterSubSettings(&CSkinSettings::GetInstance());
-  m_settingsManager->UnregisterSubSettings(&g_sysinfo);
-  m_settingsManager->UnregisterSubSettings(&CViewStateSettings::GetInstance());
+  UninitializeISubSettings();
 
   // unregister ISettingsHandler implementations
-  m_settingsManager->UnregisterSettingsHandler(&g_advancedSettings);
-  m_settingsManager->UnregisterSettingsHandler(&CMediaSourceSettings::GetInstance());
-  m_settingsManager->UnregisterSettingsHandler(&CPlayerCoreFactory::GetInstance());
-  m_settingsManager->UnregisterSettingsHandler(&CProfilesManager::GetInstance());
-#ifdef HAS_UPNP
-  m_settingsManager->UnregisterSettingsHandler(&CUPnPSettings::GetInstance());
-#endif
-  m_settingsManager->UnregisterSettingsHandler(&CWakeOnAccess::GetInstance());
-  m_settingsManager->UnregisterSettingsHandler(&CRssManager::GetInstance());
-  m_settingsManager->UnregisterSettingsHandler(&g_langInfo);
-  m_settingsManager->UnregisterSettingsHandler(&g_application);
-#if defined(TARGET_LINUX) && !defined(TARGET_ANDROID) && !defined(__UCLIBC__)
-  m_settingsManager->UnregisterSettingsHandler(&g_timezone);
-#endif
+  UninitializeISettingsHandlers();
 
   m_initialized = false;
 }
@@ -871,10 +802,6 @@ void CSettings::InitializeVisibility()
 void CSettings::InitializeDefaults()
 {
   // set some default values if necessary
-#if defined(HAS_TOUCH_SKIN) && defined(TARGET_DARWIN_IOS)
-  ((CSettingAddon*)m_settingsManager->GetSetting(CSettings::SETTING_LOOKANDFEEL_SKIN))->SetDefault("skin.re-touched");
-#endif
-
 #if defined(TARGET_POSIX)
   CSettingString* timezonecountry = (CSettingString*)m_settingsManager->GetSetting(CSettings::SETTING_LOCALE_TIMEZONECOUNTRY);
   CSettingString* timezone = (CSettingString*)m_settingsManager->GetSetting(CSettings::SETTING_LOCALE_TIMEZONE);
@@ -907,6 +834,8 @@ void CSettings::InitializeDefaults()
 
   if (g_application.IsStandAlone())
     ((CSettingInt*)m_settingsManager->GetSetting(CSettings::SETTING_POWERMANAGEMENT_SHUTDOWNSTATE))->SetDefault(POWERSTATE_SHUTDOWN);
+
+  g_powerManager.SetDefaults();
 }
 
 void CSettings::InitializeOptionFillers()
@@ -937,6 +866,10 @@ void CSettings::InitializeOptionFillers()
   m_settingsManager->RegisterSettingOptionsFiller("stereoscopicmodes", CDisplaySettings::SettingOptionsStereoscopicModesFiller);
   m_settingsManager->RegisterSettingOptionsFiller("preferedstereoscopicviewmodes", CDisplaySettings::SettingOptionsPreferredStereoscopicViewModesFiller);
   m_settingsManager->RegisterSettingOptionsFiller("monitors", CDisplaySettings::SettingOptionsMonitorsFiller);
+  m_settingsManager->RegisterSettingOptionsFiller("cmsmodes", CDisplaySettings::SettingOptionsCmsModesFiller);
+  m_settingsManager->RegisterSettingOptionsFiller("cmswhitepoints", CDisplaySettings::SettingOptionsCmsWhitepointsFiller);
+  m_settingsManager->RegisterSettingOptionsFiller("cmsprimaries", CDisplaySettings::SettingOptionsCmsPrimariesFiller);
+  m_settingsManager->RegisterSettingOptionsFiller("cmsgammamodes", CDisplaySettings::SettingOptionsCmsGammaModesFiller);
   m_settingsManager->RegisterSettingOptionsFiller("videoseeksteps", CSeekHandler::SettingOptionsSeekStepsFiller);
   m_settingsManager->RegisterSettingOptionsFiller("shutdownstates", CPowerManager::SettingOptionsShutdownStatesFiller);
   m_settingsManager->RegisterSettingOptionsFiller("startupwindows", ADDON::CSkinInfo::SettingOptionsStartupWindowsFiller);
@@ -951,10 +884,59 @@ void CSettings::InitializeOptionFillers()
   m_settingsManager->RegisterSettingOptionsFiller("timezonecountries", CLinuxTimezone::SettingOptionsTimezoneCountriesFiller);
   m_settingsManager->RegisterSettingOptionsFiller("timezones", CLinuxTimezone::SettingOptionsTimezonesFiller);
 #endif
-  m_settingsManager->RegisterSettingOptionsFiller("verticalsyncs", CDisplaySettings::SettingOptionsVerticalSyncsFiller);
   m_settingsManager->RegisterSettingOptionsFiller("keyboardlayouts", CKeyboardLayoutManager::SettingOptionsKeyboardLayoutsFiller);
   m_settingsManager->RegisterSettingOptionsFiller("loggingcomponents", CAdvancedSettings::SettingOptionsLoggingComponentsFiller);
   m_settingsManager->RegisterSettingOptionsFiller("pvrrecordmargins", PVR::CPVRSettings::MarginTimeFiller);
+}
+
+void CSettings::UninitializeOptionFillers()
+{
+  m_settingsManager->UnregisterSettingOptionsFiller("audiocdactions");
+  m_settingsManager->UnregisterSettingOptionsFiller("audiocdencoders");
+  m_settingsManager->UnregisterSettingOptionsFiller("aequalitylevels");
+  m_settingsManager->UnregisterSettingOptionsFiller("audiodevices");
+  m_settingsManager->UnregisterSettingOptionsFiller("audiodevicespassthrough");
+  m_settingsManager->UnregisterSettingOptionsFiller("audiostreamsilence");
+  m_settingsManager->UnregisterSettingOptionsFiller("charsets");
+  m_settingsManager->UnregisterSettingOptionsFiller("fontheights");
+  m_settingsManager->UnregisterSettingOptionsFiller("fonts");
+  m_settingsManager->UnregisterSettingOptionsFiller("languagenames");
+  m_settingsManager->UnregisterSettingOptionsFiller("refreshchangedelays");
+  m_settingsManager->UnregisterSettingOptionsFiller("refreshrates");
+  m_settingsManager->UnregisterSettingOptionsFiller("regions");
+  m_settingsManager->UnregisterSettingOptionsFiller("shortdateformats");
+  m_settingsManager->UnregisterSettingOptionsFiller("longdateformats");
+  m_settingsManager->UnregisterSettingOptionsFiller("timeformats");
+  m_settingsManager->UnregisterSettingOptionsFiller("24hourclockformats");
+  m_settingsManager->UnregisterSettingOptionsFiller("speedunits");
+  m_settingsManager->UnregisterSettingOptionsFiller("temperatureunits");
+  m_settingsManager->UnregisterSettingOptionsFiller("rendermethods");
+  m_settingsManager->UnregisterSettingOptionsFiller("resolutions");
+  m_settingsManager->UnregisterSettingOptionsFiller("screens");
+  m_settingsManager->UnregisterSettingOptionsFiller("stereoscopicmodes");
+  m_settingsManager->UnregisterSettingOptionsFiller("preferedstereoscopicviewmodes");
+  m_settingsManager->UnregisterSettingOptionsFiller("monitors");
+  m_settingsManager->UnregisterSettingOptionsFiller("cmsmodes");
+  m_settingsManager->UnregisterSettingOptionsFiller("cmswhitepoints");
+  m_settingsManager->UnregisterSettingOptionsFiller("cmsprimaries");
+  m_settingsManager->UnregisterSettingOptionsFiller("cmsgammamodes");
+  m_settingsManager->UnregisterSettingOptionsFiller("videoseeksteps");
+  m_settingsManager->UnregisterSettingOptionsFiller("shutdownstates");
+  m_settingsManager->UnregisterSettingOptionsFiller("startupwindows");
+  m_settingsManager->UnregisterSettingOptionsFiller("audiostreamlanguages");
+  m_settingsManager->UnregisterSettingOptionsFiller("subtitlestreamlanguages");
+  m_settingsManager->UnregisterSettingOptionsFiller("subtitledownloadlanguages");
+  m_settingsManager->UnregisterSettingOptionsFiller("iso6391languages");
+  m_settingsManager->UnregisterSettingOptionsFiller("skincolors");
+  m_settingsManager->UnregisterSettingOptionsFiller("skinfonts");
+  m_settingsManager->UnregisterSettingOptionsFiller("skinthemes");
+#if defined(TARGET_LINUX)
+  m_settingsManager->UnregisterSettingOptionsFiller("timezonecountries");
+  m_settingsManager->UnregisterSettingOptionsFiller("timezones");
+#endif // defined(TARGET_LINUX)
+  m_settingsManager->UnregisterSettingOptionsFiller("verticalsyncs");
+  m_settingsManager->UnregisterSettingOptionsFiller("keyboardlayouts");
+  m_settingsManager->UnregisterSettingOptionsFiller("pvrrecordmargins");
 }
 
 void CSettings::InitializeConditions()
@@ -993,6 +975,24 @@ void CSettings::InitializeISettingsHandlers()
   m_settingsManager->RegisterSettingsHandler(&CMediaSettings::GetInstance());
 }
 
+void CSettings::UninitializeISettingsHandlers()
+{
+  m_settingsManager->UnregisterSettingsHandler(&g_advancedSettings);
+  m_settingsManager->UnregisterSettingsHandler(&CMediaSourceSettings::GetInstance());
+  m_settingsManager->UnregisterSettingsHandler(&CPlayerCoreFactory::GetInstance());
+  m_settingsManager->UnregisterSettingsHandler(&CProfilesManager::GetInstance());
+#ifdef HAS_UPNP
+  m_settingsManager->UnregisterSettingsHandler(&CUPnPSettings::GetInstance());
+#endif
+  m_settingsManager->UnregisterSettingsHandler(&CWakeOnAccess::GetInstance());
+  m_settingsManager->UnregisterSettingsHandler(&CRssManager::GetInstance());
+  m_settingsManager->UnregisterSettingsHandler(&g_langInfo);
+  m_settingsManager->UnregisterSettingsHandler(&g_application);
+#if defined(TARGET_LINUX) && !defined(TARGET_ANDROID) && !defined(__UCLIBC__)
+  m_settingsManager->UnregisterSettingsHandler(&g_timezone);
+#endif
+}
+
 void CSettings::InitializeISubSettings()
 {
   // register ISubSettings implementations
@@ -1002,6 +1002,16 @@ void CSettings::InitializeISubSettings()
   m_settingsManager->RegisterSubSettings(&CSkinSettings::GetInstance());
   m_settingsManager->RegisterSubSettings(&g_sysinfo);
   m_settingsManager->RegisterSubSettings(&CViewStateSettings::GetInstance());
+}
+
+void CSettings::UninitializeISubSettings()
+{
+  m_settingsManager->UnregisterSubSettings(&g_application);
+  m_settingsManager->UnregisterSubSettings(&CDisplaySettings::GetInstance());
+  m_settingsManager->UnregisterSubSettings(&CMediaSettings::GetInstance());
+  m_settingsManager->UnregisterSubSettings(&CSkinSettings::GetInstance());
+  m_settingsManager->UnregisterSubSettings(&g_sysinfo);
+  m_settingsManager->UnregisterSubSettings(&CViewStateSettings::GetInstance());
 }
 
 void CSettings::InitializeISettingCallbacks()
@@ -1023,7 +1033,6 @@ void CSettings::InitializeISettingCallbacks()
   settingSet.insert(CSettings::SETTING_MUSICLIBRARY_IMPORT);
   settingSet.insert(CSettings::SETTING_MUSICFILES_TRACKFORMAT);
   settingSet.insert(CSettings::SETTING_VIDEOLIBRARY_FLATTENTVSHOWS);
-  settingSet.insert(CSettings::SETTING_VIDEOLIBRARY_REMOVE_DUPLICATES);
   settingSet.insert(CSettings::SETTING_VIDEOLIBRARY_GROUPMOVIESETS);
   settingSet.insert(CSettings::SETTING_VIDEOLIBRARY_CLEANUP);
   settingSet.insert(CSettings::SETTING_VIDEOLIBRARY_IMPORT);
@@ -1034,9 +1043,10 @@ void CSettings::InitializeISettingCallbacks()
   settingSet.insert(CSettings::SETTING_VIDEOSCREEN_SCREEN);
   settingSet.insert(CSettings::SETTING_VIDEOSCREEN_RESOLUTION);
   settingSet.insert(CSettings::SETTING_VIDEOSCREEN_SCREENMODE);
-  settingSet.insert(CSettings::SETTING_VIDEOSCREEN_VSYNC);
   settingSet.insert(CSettings::SETTING_VIDEOSCREEN_MONITOR);
   settingSet.insert(CSettings::SETTING_VIDEOSCREEN_PREFEREDSTEREOSCOPICMODE);
+  settingSet.insert(CSettings::SETTING_VIDEOSCREEN_3DLUT);
+  settingSet.insert(CSettings::SETTING_VIDEOSCREEN_DISPLAYPROFILE);
   m_settingsManager->RegisterCallback(&CDisplaySettings::GetInstance(), settingSet);
   
   settingSet.clear();
@@ -1056,6 +1066,7 @@ void CSettings::InitializeISettingCallbacks()
   settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_PASSTHROUGH);
   settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_CHANNELS);
   settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_PROCESSQUALITY);
+  settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_ATEMPOTHRESHOLD);
   settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_GUISOUNDMODE);
   settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_STEREOUPMIX);
   settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_AC3PASSTHROUGH);
@@ -1067,8 +1078,8 @@ void CSettings::InitializeISettingCallbacks()
   settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_AUDIODEVICE);
   settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_PASSTHROUGHDEVICE);
   settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_STREAMSILENCE);
+  settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_STREAMNOISE);
   settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_MAINTAINORIGINALVOLUME);
-  settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_NORMALIZELEVELS);
   settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_DSPADDONSENABLED);
   settingSet.insert(CSettings::SETTING_LOOKANDFEEL_SKIN);
   settingSet.insert(CSettings::SETTING_LOOKANDFEEL_SKINSETTINGS);
@@ -1079,7 +1090,6 @@ void CSettings::InitializeISettingCallbacks()
   settingSet.insert(CSettings::SETTING_MUSICPLAYER_REPLAYGAINPREAMP);
   settingSet.insert(CSettings::SETTING_MUSICPLAYER_REPLAYGAINNOGAINPREAMP);
   settingSet.insert(CSettings::SETTING_MUSICPLAYER_REPLAYGAINTYPE);
-  settingSet.insert(CSettings::SETTING_MUSICPLAYER_REPLAYGAINAVOIDCLIPPING);
   settingSet.insert(CSettings::SETTING_SCRAPERS_MUSICVIDEOSDEFAULT);
   settingSet.insert(CSettings::SETTING_SCREENSAVER_MODE);
   settingSet.insert(CSettings::SETTING_SCREENSAVER_PREVIEW);
@@ -1090,6 +1100,10 @@ void CSettings::InitializeISettingCallbacks()
   settingSet.insert(CSettings::SETTING_VIDEOPLAYER_USEAMCODEC);
   settingSet.insert(CSettings::SETTING_VIDEOPLAYER_USEMEDIACODEC);
   settingSet.insert(CSettings::SETTING_VIDEOPLAYER_USEMEDIACODECSURFACE);
+  settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_VOLUMESTEPS);
+  settingSet.insert(CSettings::SETTING_SOURCE_VIDEOS);
+  settingSet.insert(CSettings::SETTING_SOURCE_MUSIC);
+  settingSet.insert(CSettings::SETTING_SOURCE_PICTURES);
   m_settingsManager->RegisterCallback(&g_application, settingSet);
 
   settingSet.clear();
@@ -1119,7 +1133,6 @@ void CSettings::InitializeISettingCallbacks()
   m_settingsManager->RegisterCallback(&g_langInfo, settingSet);
 
   settingSet.clear();
-  settingSet.insert(CSettings::SETTING_INPUT_ENABLEJOYSTICK);
   settingSet.insert(CSettings::SETTING_INPUT_ENABLEMOUSE);
   m_settingsManager->RegisterCallback(&CInputManager::GetInstance(), settingSet);
 
@@ -1151,19 +1164,6 @@ void CSettings::InitializeISettingCallbacks()
   m_settingsManager->RegisterCallback(&g_passwordManager, settingSet);
 
   settingSet.clear();
-  settingSet.insert(CSettings::SETTING_PVRMANAGER_ENABLED);
-  settingSet.insert(CSettings::SETTING_PVRMANAGER_CHANNELMANAGER);
-  settingSet.insert(CSettings::SETTING_PVRMANAGER_GROUPMANAGER);
-  settingSet.insert(CSettings::SETTING_PVRMANAGER_CHANNELSCAN);
-  settingSet.insert(CSettings::SETTING_PVRMANAGER_RESETDB);
-  settingSet.insert(CSettings::SETTING_PVRCLIENT_MENUHOOK);
-  settingSet.insert(CSettings::SETTING_PVRMENU_SEARCHICONS);
-  settingSet.insert(CSettings::SETTING_EPG_RESETEPG);
-  settingSet.insert(CSettings::SETTING_EPG_DAYSTODISPLAY);
-  settingSet.insert(CSettings::SETTING_PVRPARENTAL_ENABLED);
-  m_settingsManager->RegisterCallback(&PVR::g_PVRManager, settingSet);
-
-  settingSet.clear();
   settingSet.insert(CSettings::SETTING_LOOKANDFEEL_RSSEDIT);
   m_settingsManager->RegisterCallback(&CRssManager::GetInstance(), settingSet);
 
@@ -1181,6 +1181,8 @@ void CSettings::InitializeISettingCallbacks()
 
   settingSet.clear();
   settingSet.insert(CSettings::SETTING_INPUT_PERIPHERALS);
+  settingSet.insert(CSettings::SETTING_INPUT_CONTROLLERCONFIG);
+  settingSet.insert(CSettings::SETTING_INPUT_TESTRUMBLE);
   settingSet.insert(CSettings::SETTING_LOCALE_LANGUAGE);
   m_settingsManager->RegisterCallback(&PERIPHERALS::CPeripherals::GetInstance(), settingSet);
 
@@ -1190,12 +1192,6 @@ void CSettings::InitializeISettingCallbacks()
   settingSet.insert(CSettings::SETTING_INPUT_APPLEREMOTEALWAYSON);
   m_settingsManager->RegisterCallback(&XBMCHelper::GetInstance(), settingSet);
 #endif
-
-  settingSet.clear();
-  settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_DSPADDONSENABLED);
-  settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_DSPSETTINGS);
-  settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_DSPRESETDB);
-  m_settingsManager->RegisterCallback(&ActiveAE::CActiveAEDSP::GetInstance(), settingSet);
 
   settingSet.clear();
   settingSet.insert(CSettings::SETTING_ADDONS_AUTOUPDATES);
@@ -1210,6 +1206,50 @@ void CSettings::InitializeISettingCallbacks()
   settingSet.clear();
   settingSet.insert(CSettings::SETTING_POWERMANAGEMENT_WAKEONACCESS);
   m_settingsManager->RegisterCallback(&CWakeOnAccess::GetInstance(), settingSet);
+
+  settingSet.clear();
+  settingSet.insert(CSettings::SETTING_GAMES_KEYBOARD_PLAYERS);
+  settingSet.insert(CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_1);
+  settingSet.insert(CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_2);
+  settingSet.insert(CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_3);
+  settingSet.insert(CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_4);
+  settingSet.insert(CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_5);
+  settingSet.insert(CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_6);
+  settingSet.insert(CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_7);
+  settingSet.insert(CSettings::SETTING_GAMES_KEYBOARD_PLAYERCONFIG_8);
+  settingSet.insert(CSettings::SETTING_GAMES_ENABLEREWIND);
+  settingSet.insert(CSettings::SETTING_GAMES_REWINDTIME);
+  m_settingsManager->RegisterCallback(&GAME::CGameSettings::GetInstance(), settingSet);
+}
+
+void CSettings::UninitializeISettingCallbacks()
+{
+  m_settingsManager->UnregisterCallback(&CEventLog::GetInstance());
+  m_settingsManager->UnregisterCallback(&g_advancedSettings);
+  m_settingsManager->UnregisterCallback(&CMediaSettings::GetInstance());
+  m_settingsManager->UnregisterCallback(&CDisplaySettings::GetInstance());
+  m_settingsManager->UnregisterCallback(&CSeekHandler::GetInstance());
+  m_settingsManager->UnregisterCallback(&CStereoscopicsManager::GetInstance());
+  m_settingsManager->UnregisterCallback(&g_application);
+  m_settingsManager->UnregisterCallback(&g_audioManager);
+  m_settingsManager->UnregisterCallback(&g_charsetConverter);
+  m_settingsManager->UnregisterCallback(&g_graphicsContext);
+  m_settingsManager->UnregisterCallback(&g_langInfo);
+  m_settingsManager->UnregisterCallback(&CInputManager::GetInstance());
+  m_settingsManager->UnregisterCallback(&CNetworkServices::GetInstance());
+  m_settingsManager->UnregisterCallback(&g_passwordManager);
+  m_settingsManager->UnregisterCallback(&CRssManager::GetInstance());
+  m_settingsManager->UnregisterCallback(&ADDON::CRepositoryUpdater::GetInstance());
+  m_settingsManager->UnregisterCallback(&GAME::CGameSettings::GetInstance());
+#if defined(TARGET_LINUX)
+  m_settingsManager->UnregisterCallback(&g_timezone);
+#endif // defined(TARGET_LINUX)
+  m_settingsManager->UnregisterCallback(&g_weatherManager);
+  m_settingsManager->UnregisterCallback(&PERIPHERALS::CPeripherals::GetInstance());
+#if defined(TARGET_DARWIN_OSX)
+  m_settingsManager->UnregisterCallback(&XBMCHelper::GetInstance());
+#endif
+  m_settingsManager->UnregisterCallback(&CWakeOnAccess::GetInstance());
 }
 
 bool CSettings::Reset()

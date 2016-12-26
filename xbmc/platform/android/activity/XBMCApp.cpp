@@ -18,6 +18,8 @@
  *
  */
 
+#include "XBMCApp.h"
+
 #include <sstream>
 
 #include <unistd.h>
@@ -50,6 +52,9 @@
 #include "platform/XbmcContext.h"
 #include <android/bitmap.h>
 #include "cores/AudioEngine/AEFactory.h"
+#include "cores/VideoPlayer/VideoRenderers/RenderManager.h"
+#include "platform/android/activity/IInputDeviceCallbacks.h"
+#include "platform/android/activity/IInputDeviceEventHandler.h"
 #include "platform/android/jni/JNIThreading.h"
 #include "platform/android/jni/BroadcastReceiver.h"
 #include "platform/android/jni/Intent.h"
@@ -71,15 +76,16 @@
 #include "platform/android/jni/ContentResolver.h"
 #include "platform/android/jni/MediaStore.h"
 #include "platform/android/jni/Build.h"
-#if defined(HAS_LIBAMCODEC)
-#include "utils/AMLUtils.h"
-#endif
+#include "filesystem/SpecialProtocol.h"
 #include "platform/android/jni/Window.h"
 #include "platform/android/jni/WindowManager.h"
 #include "platform/android/jni/KeyEvent.h"
+#include "platform/android/jni/Display.h"
+#include "platform/android/jni/View.h"
 #include "AndroidKey.h"
 
 #include "CompileInfo.h"
+#include "video/videosync/VideoSyncAndroid.h"
 
 #define GIGABYTES       1073741824
 
@@ -100,8 +106,12 @@ ANativeWindow* CXBMCApp::m_window = NULL;
 int CXBMCApp::m_batteryLevel = 0;
 bool CXBMCApp::m_hasFocus = false;
 bool CXBMCApp::m_headsetPlugged = false;
+IInputDeviceCallbacks* CXBMCApp::m_inputDeviceCallbacks = nullptr;
+IInputDeviceEventHandler* CXBMCApp::m_inputDeviceEventHandler = nullptr;
 CCriticalSection CXBMCApp::m_applicationsMutex;
 std::vector<androidPackage> CXBMCApp::m_applications;
+CVideoSyncAndroid* CXBMCApp::m_syncImpl = NULL;
+CEvent CXBMCApp::m_vsyncEvent;
 
 
 CXBMCApp::CXBMCApp(ANativeActivity* nativeActivity)
@@ -130,21 +140,12 @@ void CXBMCApp::onStart()
 {
   android_printf("%s: ", __PRETTY_FUNCTION__);
 
-#if defined(HAS_LIBAMCODEC)
-  if (aml_permissions())
-  {
-    // non-aml boxes will ignore this intent broadcast.
-    // setup aml scalers to play video as is, unscaled.
-    CJNIIntent intent_aml_video_on = CJNIIntent("android.intent.action.REALVIDEO_ON");
-    sendBroadcast(intent_aml_video_on);
-  }
-#endif
-
   if (!m_firstrun)
   {
     android_printf("%s: Already running, ignoring request to start", __PRETTY_FUNCTION__);
     return;
   }
+
   pthread_attr_t attr;
   pthread_attr_init(&attr);
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -160,6 +161,7 @@ void CXBMCApp::onResume()
   CJNIIntentFilter intentFilter;
   intentFilter.addAction("android.intent.action.BATTERY_CHANGED");
   intentFilter.addAction("android.intent.action.SCREEN_ON");
+  intentFilter.addAction("android.intent.action.HEADSET_PLUG");
   registerReceiver(*this, intentFilter);
 
   if (!g_application.IsInScreenSaver())
@@ -189,15 +191,6 @@ void CXBMCApp::onPause()
     else
       registerMediaButtonEventReceiver();
   }
-
-#if defined(HAS_LIBAMCODEC)
-  if (aml_permissions())
-  {
-    // non-aml boxes will ignore this intent broadcast.
-    CJNIIntent intent_aml_video_off = CJNIIntent("android.intent.action.REALVIDEO_OFF");
-    sendBroadcast(intent_aml_video_off);
-  }
-#endif
 
   EnableWakeLock(false);
 }
@@ -380,6 +373,7 @@ void CXBMCApp::run()
 
   android_printf("%s Started with action: %s\n", CCompileInfo::GetAppName(), startIntent.getAction().c_str());
 
+  CAppParamParser appParamParser;
   std::string filenameToPlay = GetFilenameFromIntent(startIntent);
   if (!filenameToPlay.empty())
   {
@@ -390,7 +384,6 @@ void CXBMCApp::run()
     argv[0] = exe_name.c_str();
     argv[1] = filenameToPlay.c_str();
 
-    CAppParamParser appParamParser;
     appParamParser.Parse((const char **)argv, argc);
 
     free(argv);
@@ -400,7 +393,7 @@ void CXBMCApp::run()
   android_printf(" => running XBMC_Run...");
   try
   {
-    status = XBMC_Run(true);
+    status = XBMC_Run(true, appParamParser.m_playlist);
     android_printf(" => XBMC_Run finished with %d", status);
   }
   catch(...)
@@ -467,6 +460,23 @@ void CXBMCApp::SetRefreshRateCallback(CVariant* rateVariant)
   }
 }
 
+void CXBMCApp::SetDisplayModeCallback(CVariant* modeVariant)
+{
+  int mode = modeVariant->asFloat();
+  delete modeVariant;
+
+  CJNIWindow window = getWindow();
+  if (window)
+  {
+    CJNIWindowManagerLayoutParams params = window.getAttributes();
+    if (params.getpreferredDisplayModeId() != mode)
+    {
+      params.setpreferredDisplayModeId(mode);
+      window.setAttributes(params);
+    }
+  }
+}
+
 void CXBMCApp::SetRefreshRate(float rate)
 {
   if (rate < 1.0)
@@ -474,6 +484,15 @@ void CXBMCApp::SetRefreshRate(float rate)
 
   CVariant *variant = new CVariant(rate);
   runNativeOnUiThread(SetRefreshRateCallback, variant);
+}
+
+void CXBMCApp::SetDisplayMode(int mode)
+{
+  if (mode < 1.0)
+    return;
+
+  CVariant *variant = new CVariant(mode);
+  runNativeOnUiThread(SetDisplayModeCallback, variant);
 }
 
 int CXBMCApp::android_printf(const char *format, ...)
@@ -499,6 +518,19 @@ int CXBMCApp::GetDPI()
   AConfiguration_delete(config);
 
   return dpi;
+}
+
+CRect CXBMCApp::MapRenderToDroid(const CRect& srcRect)
+{
+  float scaleX = 1.0;
+  float scaleY = 1.0;
+
+  CJNIRect r = m_xbmcappinstance->getVideoViewSurfaceRect();
+  RESOLUTION_INFO renderRes = g_graphicsContext.GetResInfo(g_graphicsContext.GetVideoResolution());
+  scaleX = (double)r.width() / renderRes.iWidth;
+  scaleY = (double)r.height() / renderRes.iHeight;
+
+  return CRect(srcRect.x1 * scaleX, srcRect.y1 * scaleY, srcRect.x2 * scaleX, srcRect.y2 * scaleY);
 }
 
 void CXBMCApp::OnPlayBackStarted()
@@ -532,6 +564,18 @@ void CXBMCApp::OnPlayBackEnded()
   ReleaseAudioFocus();
 }
 
+const CJNIViewInputDevice CXBMCApp::GetInputDevice(int deviceId)
+{
+  CJNIInputManager inputManager(getSystemService("input"));
+  return inputManager.getInputDevice(deviceId);
+}
+
+std::vector<int> CXBMCApp::GetInputDeviceIds()
+{
+  CJNIInputManager inputManager(getSystemService("input"));
+  return inputManager.getInputDeviceIds();
+}
+
 std::vector<androidPackage> CXBMCApp::GetApplications()
 {
   CSingleLock lock(m_applicationsMutex);
@@ -540,7 +584,7 @@ std::vector<androidPackage> CXBMCApp::GetApplications()
     CJNIList<CJNIApplicationInfo> packageList = GetPackageManager().getInstalledApplications(CJNIPackageManager::GET_ACTIVITIES);
     int numPackages = packageList.size();
     for (int i = 0; i < numPackages; i++)
-    {            
+    {
       CJNIIntent intent = GetPackageManager().getLaunchIntentForPackage(packageList.get(i).packageName);
       if (!intent && CJNIBuild::SDK_INT >= 21)
         intent = GetPackageManager().getLeanbackLaunchIntentForPackage(packageList.get(i).packageName);
@@ -582,7 +626,7 @@ bool CXBMCApp::StartActivity(const std::string &package, const std::string &inte
     if (!jniURI)
       return false;
 
-    newIntent.setDataAndType(jniURI, dataType); 
+    newIntent.setDataAndType(jniURI, dataType);
   }
 
   newIntent.setPackage(package);
@@ -709,7 +753,7 @@ float CXBMCApp::GetSystemVolume()
   CJNIAudioManager audioManager(getSystemService("audio"));
   if (audioManager)
     return (float)audioManager.getStreamVolume() / GetMaxSystemVolume();
-  else 
+  else
   {
     android_printf("CXBMCApp::GetSystemVolume: Could not get Audio Manager");
     return 0;
@@ -724,6 +768,11 @@ void CXBMCApp::SetSystemVolume(float percent)
     audioManager.setStreamVolume(maxVolume);
   else
     android_printf("CXBMCApp::SetSystemVolume: Could not get Audio Manager");
+}
+
+void CXBMCApp::InitDirectories()
+{
+  CSpecialProtocol::SetXBMCBinAddonPath(getApplicationInfo().nativeLibraryDir.c_str());
 }
 
 void CXBMCApp::onReceive(CJNIIntent intent)
@@ -788,7 +837,7 @@ void CXBMCApp::onNewIntent(CJNIIntent intent)
   if (action == "android.intent.action.VIEW")
   {
     CApplicationMessenger::GetInstance().SendMsg(TMSG_MEDIA_PLAY, 1, 0, static_cast<void*>(
-                                         new CFileItem(GetFilenameFromIntent(intent))));
+                                                 new CFileItem(GetFilenameFromIntent(intent), false)));
   }
 }
 
@@ -810,6 +859,29 @@ void CXBMCApp::onAudioFocusChange(int focusChange)
     if (g_application.m_pPlayer->IsPlaying() && !g_application.m_pPlayer->IsPaused())
       CApplicationMessenger::GetInstance().SendMsg(TMSG_GUI_ACTION, WINDOW_INVALID, -1, static_cast<void*>(new CAction(ACTION_PAUSE)));
   }
+}
+
+void CXBMCApp::InitFrameCallback(CVideoSyncAndroid* syncImpl)
+{
+  m_syncImpl = syncImpl;
+}
+
+void CXBMCApp::DeinitFrameCallback()
+{
+  m_syncImpl = NULL;
+}
+
+void CXBMCApp::doFrame(int64_t frameTimeNanos)
+{
+  if (m_syncImpl)
+    m_syncImpl->FrameCallback(frameTimeNanos);
+
+  m_vsyncEvent.Set();
+}
+
+bool CXBMCApp::WaitVSync(unsigned int milliSeconds)
+{
+  return m_vsyncEvent.WaitMSec(milliSeconds);
 }
 
 void CXBMCApp::SetupEnv()
@@ -895,4 +967,62 @@ const ANativeWindow** CXBMCApp::GetNativeWindow(int timeout)
 
   m_windowCreated.WaitMSec(timeout);
   return (const ANativeWindow**)&m_window;
+}
+
+void CXBMCApp::RegisterInputDeviceCallbacks(IInputDeviceCallbacks* handler)
+{
+  if (handler == nullptr)
+    return;
+
+  m_inputDeviceCallbacks = handler;
+}
+
+void CXBMCApp::UnregisterInputDeviceCallbacks()
+{
+  m_inputDeviceCallbacks = nullptr;
+}
+
+void CXBMCApp::onInputDeviceAdded(int deviceId)
+{
+  CXBMCApp::android_printf("Input device added: %d", deviceId);
+
+  if (m_inputDeviceCallbacks != nullptr)
+    m_inputDeviceCallbacks->OnInputDeviceAdded(deviceId);
+}
+
+void CXBMCApp::onInputDeviceChanged(int deviceId)
+{
+  CXBMCApp::android_printf("Input device changed: %d", deviceId);
+
+  if (m_inputDeviceCallbacks != nullptr)
+    m_inputDeviceCallbacks->OnInputDeviceChanged(deviceId);
+}
+
+void CXBMCApp::onInputDeviceRemoved(int deviceId)
+{
+  CXBMCApp::android_printf("Input device removed: %d", deviceId);
+
+  if (m_inputDeviceCallbacks != nullptr)
+    m_inputDeviceCallbacks->OnInputDeviceRemoved(deviceId);
+}
+
+void CXBMCApp::RegisterInputDeviceEventHandler(IInputDeviceEventHandler* handler)
+{
+  if (handler == nullptr)
+    return;
+
+  m_inputDeviceEventHandler = handler;
+}
+
+void CXBMCApp::UnregisterInputDeviceEventHandler()
+{
+  m_inputDeviceEventHandler = nullptr;
+}
+
+bool CXBMCApp::onInputDeviceEvent(const AInputEvent* event)
+{
+  if (m_inputDeviceEventHandler != nullptr)
+    return m_inputDeviceEventHandler->OnInputDeviceEvent(event);
+
+  return false;
 }

@@ -19,7 +19,7 @@
 #pragma once
 
 #include "AddonDll.h"
-#include "include/kodi_audiodec_types.h"
+#include "addons/kodi-addon-dev-kit/include/kodi/kodi_audiodec_types.h"
 #include "cores/paplayer/ICodec.h"
 #include "music/tags/ImusicInfoTagLoader.h"
 #include "filesystem/MusicFileDirectory.h"
@@ -30,13 +30,9 @@ namespace MUSIC_INFO
   class EmbeddedArt;
 }
 
-typedef DllAddon<AudioDecoder, AUDIODEC_PROPS> DllAudioDecoder;
 namespace ADDON
 {
-  typedef CAddonDll<DllAudioDecoder,
-                    AudioDecoder, AUDIODEC_PROPS> AudioDecoderDll;
-
-  class CAudioDecoder : public AudioDecoderDll,
+  class CAudioDecoder : public CAddonDll,
                         public ICodec,
                         public MUSIC_INFO::IMusicInfoTagLoader,
                         public XFILE::CMusicFileDirectory
@@ -46,7 +42,7 @@ namespace ADDON
     static std::unique_ptr<CAudioDecoder> FromExtension(AddonProps props, const cp_extension_t* ext);
 
     explicit CAudioDecoder(AddonProps props)
-      : AudioDecoderDll(std::move(props))
+      : CAddonDll(std::move(props))
       , m_context{nullptr}
       , m_tags{false}
       , m_tracks{false}
@@ -56,12 +52,13 @@ namespace ADDON
     CAudioDecoder(AddonProps props, std::string extension, std::string mimetype, bool tags,
         bool tracks, std::string codecName, std::string strExt);
 
-    virtual ~CAudioDecoder() {}
+    virtual ~CAudioDecoder();
 
     // Things that MUST be supplied by the child classes
-    bool Init(const std::string& strFile, unsigned int filecache);
+    bool Create();
+    bool Init(const CFileItem& file, unsigned int filecache) override;
     int ReadPCM(uint8_t* buffer, int size, int* actualsize);
-    int64_t Seek(int64_t time);
+    bool Seek(int64_t time);
     bool CanInit() { return true; }
     void DeInit();
     void Destroy();
@@ -69,7 +66,6 @@ namespace ADDON
               MUSIC_INFO::CMusicInfoTag& tag,
               MUSIC_INFO::EmbeddedArt *art = NULL);
     int GetTrackCount(const std::string& strPath);
-    virtual CAEChannelInfo GetChannelInfo();
 
     const std::string& GetExtensions() const { return m_extension; }
     const std::string& GetMimetypes() const { return m_mimetype; }
@@ -82,6 +78,8 @@ namespace ADDON
     bool m_tags;
     bool m_tracks;
     const AEChannel* m_channel;
+    AUDIODEC_PROPS m_info;
+    KodiToAddonFuncTable_AudioDecoder m_struct;
   };
 
 } /*namespace ADDON*/

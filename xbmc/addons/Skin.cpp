@@ -20,6 +20,7 @@
 
 #include "Skin.h"
 #include "AddonManager.h"
+#include "ServiceBroker.h"
 #include "Util.h"
 #include "dialogs/GUIDialogKaiToast.h"
 // fallback for new skin resolution code
@@ -190,12 +191,10 @@ CSkinInfo::CSkinInfo(
     : CAddon(std::move(props)),
       m_defaultRes(resolution),
       m_resolutions(resolutions),
-      m_version(""),
       m_effectsSlowDown(effectsSlowDown),
       m_debugging(debugging)
 {
   LoadStartupWindows(nullptr);
-  m_version = GetDependencyVersion("xbmc.gui");
 }
 
 struct closestRes
@@ -258,17 +257,14 @@ std::string CSkinInfo::GetSkinPath(const std::string& strFile, RESOLUTION_INFO *
   const RESOLUTION_INFO &target = g_graphicsContext.GetResInfo();
   *res = *std::min_element(m_resolutions.begin(), m_resolutions.end(), closestRes(target));
 
-  std::string strPath = URIUtils::AddFileToFolder(strPathToUse, res->strMode);
-  strPath = URIUtils::AddFileToFolder(strPath, strFile);
+  std::string strPath = URIUtils::AddFileToFolder(strPathToUse, res->strMode, strFile);
   if (CFile::Exists(strPath))
     return strPath;
 
   // use the default resolution
   *res = m_defaultRes;
 
-  strPath = URIUtils::AddFileToFolder(strPathToUse, res->strMode);
-  strPath = URIUtils::AddFileToFolder(strPath, strFile);
-  return strPath;
+  return URIUtils::AddFileToFolder(strPathToUse, res->strMode, strFile);
 }
 
 bool CSkinInfo::HasSkinFile(const std::string &strFile) const
@@ -294,7 +290,7 @@ void CSkinInfo::ResolveIncludes(TiXmlElement *node, std::map<INFO::InfoPtr, bool
 
 int CSkinInfo::GetStartWindow() const
 {
-  int windowID = CSettings::GetInstance().GetInt(CSettings::SETTING_LOOKANDFEEL_STARTUPWINDOW);
+  int windowID = CServiceBroker::GetSettings().GetInt(CSettings::SETTING_LOOKANDFEEL_STARTUPWINDOW);
   assert(m_startupWindows.size());
   for (std::vector<CStartupWindow>::const_iterator it = m_startupWindows.begin(); it != m_startupWindows.end(); ++it)
   {
@@ -308,16 +304,18 @@ int CSkinInfo::GetStartWindow() const
 bool CSkinInfo::LoadStartupWindows(const cp_extension_t *ext)
 {
   m_startupWindows.clear();
-  m_startupWindows.push_back(CStartupWindow(WINDOW_HOME, "513"));
-  m_startupWindows.push_back(CStartupWindow(WINDOW_TV_CHANNELS, "19180"));
-  m_startupWindows.push_back(CStartupWindow(WINDOW_RADIO_CHANNELS, "19183"));
-  m_startupWindows.push_back(CStartupWindow(WINDOW_PROGRAMS, "0"));
-  m_startupWindows.push_back(CStartupWindow(WINDOW_PICTURES, "1"));
-  m_startupWindows.push_back(CStartupWindow(WINDOW_MUSIC, "2"));
-  m_startupWindows.push_back(CStartupWindow(WINDOW_VIDEOS, "3"));
-  m_startupWindows.push_back(CStartupWindow(WINDOW_FILES, "7"));
-  m_startupWindows.push_back(CStartupWindow(WINDOW_SETTINGS_MENU, "5"));
-  m_startupWindows.push_back(CStartupWindow(WINDOW_WEATHER, "8"));
+  m_startupWindows.emplace_back(WINDOW_HOME, "513");
+  m_startupWindows.emplace_back(WINDOW_TV_CHANNELS, "19180");
+  m_startupWindows.emplace_back(WINDOW_TV_GUIDE, "19273");
+  m_startupWindows.emplace_back(WINDOW_RADIO_CHANNELS, "19183");
+  m_startupWindows.emplace_back(WINDOW_RADIO_GUIDE, "19274");
+  m_startupWindows.emplace_back(WINDOW_PROGRAMS, "0");
+  m_startupWindows.emplace_back(WINDOW_PICTURES, "1");
+  m_startupWindows.emplace_back(WINDOW_MUSIC_NAV, "2");
+  m_startupWindows.emplace_back(WINDOW_VIDEO_NAV, "3");
+  m_startupWindows.emplace_back(WINDOW_FILES, "7");
+  m_startupWindows.emplace_back(WINDOW_SETTINGS_MENU, "5");
+  m_startupWindows.emplace_back(WINDOW_WEATHER, "8");
   return true;
 }
 
@@ -362,7 +360,7 @@ int CSkinInfo::GetFirstWindow() const
 bool CSkinInfo::IsInUse() const
 {
   // Could extend this to prompt for reverting to the standard skin perhaps
-  return CSettings::GetInstance().GetString(CSettings::SETTING_LOOKANDFEEL_SKIN) == ID();
+  return CServiceBroker::GetSettings().GetString(CSettings::SETTING_LOOKANDFEEL_SKIN) == ID();
 }
 
 const INFO::CSkinVariableString* CSkinInfo::CreateSkinVariable(const std::string& name, int context)
@@ -372,12 +370,13 @@ const INFO::CSkinVariableString* CSkinInfo::CreateSkinVariable(const std::string
 
 void CSkinInfo::OnPreInstall()
 {
-  if (IsInUse())
-    CApplicationMessenger::GetInstance().SendMsg(TMSG_EXECUTE_BUILT_IN, -1, -1, nullptr, "UnloadSkin");
 }
 
 void CSkinInfo::OnPostInstall(bool update, bool modal)
 {
+  if (!g_SkinInfo)
+    return;
+
   if (IsInUse() || (!update && !modal && 
     HELPERS::ShowYesNoDialogText(CVariant{Name()}, CVariant{24099}) == DialogResponse::YES))
   {
@@ -387,15 +386,18 @@ void CSkinInfo::OnPostInstall(bool update, bool modal)
       toast->ResetTimer();
       toast->Close(true);
     }
-    if (CSettings::GetInstance().GetString(CSettings::SETTING_LOOKANDFEEL_SKIN) == ID())
-      CApplicationMessenger::GetInstance().SendMsg(TMSG_EXECUTE_BUILT_IN, -1, -1, nullptr, "ReloadSkin");
+    if (CServiceBroker::GetSettings().GetString(CSettings::SETTING_LOOKANDFEEL_SKIN) == ID())
+      CApplicationMessenger::GetInstance().PostMsg(TMSG_EXECUTE_BUILT_IN, -1, -1, nullptr, "ReloadSkin");
     else
-      CSettings::GetInstance().SetString(CSettings::SETTING_LOOKANDFEEL_SKIN, ID());
+      CServiceBroker::GetSettings().SetString(CSettings::SETTING_LOOKANDFEEL_SKIN, ID());
   }
 }
 
 void CSkinInfo::SettingOptionsSkinColorsFiller(const CSetting *setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data)
 {
+  if (!g_SkinInfo)
+    return;
+
   std::string settingValue = ((const CSettingString*)setting)->GetValue();
   // Remove the .xml extension from the Themes
   if (URIUtils::HasExtension(settingValue, ".xml"))
@@ -437,6 +439,9 @@ void CSkinInfo::SettingOptionsSkinColorsFiller(const CSetting *setting, std::vec
 
 void CSkinInfo::SettingOptionsSkinFontsFiller(const CSetting *setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data)
 {
+  if (!g_SkinInfo)
+    return;
+
   std::string settingValue = ((const CSettingString*)setting)->GetValue();
   bool currentValueSet = false;
   std::string strPath = g_SkinInfo->GetSkinPath("Font.xml");
@@ -491,11 +496,11 @@ void CSkinInfo::SettingOptionsSkinThemesFiller(const CSetting *setting, std::vec
   URIUtils::RemoveExtension(settingValue);
   current = "SKINDEFAULT";
 
-  // there is a default theme (just Textures.xpr/xbt)
-  // any other *.xpr|*.xbt files are additional themes on top of this one.
+  // there is a default theme (just Textures.xbt)
+  // any other *.xbt files are additional themes on top of this one.
 
   // add the default Label
-  list.push_back(make_pair(g_localizeStrings.Get(15109), "SKINDEFAULT")); // the standard Textures.xpr/xbt will be used
+  list.push_back(make_pair(g_localizeStrings.Get(15109), "SKINDEFAULT")); // the standard Textures.xbt will be used
 
   // search for themes in the current skin!
   std::vector<std::string> vecTheme;
@@ -515,6 +520,9 @@ void CSkinInfo::SettingOptionsSkinThemesFiller(const CSetting *setting, std::vec
 
 void CSkinInfo::SettingOptionsStartupWindowsFiller(const CSetting *setting, std::vector< std::pair<std::string, int> > &list, int &current, void *data)
 {
+  if (!g_SkinInfo)
+    return;
+
   int settingValue = ((const CSettingInt *)setting)->GetValue();
   current = -1;
 

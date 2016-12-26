@@ -21,7 +21,7 @@
 #include <cstdlib>
 
 #include "system.h"
-#include "addons/include/xbmc_pvr_types.h"
+#include "addons/kodi-addon-dev-kit/include/kodi/xbmc_pvr_types.h"
 #include "dbwrappers/dataset.h"
 #include "settings/AdvancedSettings.h"
 #include "utils/log.h"
@@ -149,15 +149,13 @@ bool CEpgDatabase::Delete(const CEpg &table)
   return DeleteValues("epg", filter);
 }
 
-bool CEpgDatabase::DeleteOldEpgEntries(void)
+bool CEpgDatabase::DeleteEpgEntries(const CDateTime &maxEndTime)
 {
-  time_t iCleanupTime;
-  CDateTime cleanupTime = CDateTime::GetCurrentDateTime().GetAsUTCDateTime() -
-      CDateTimeSpan(0, g_advancedSettings.m_iEpgLingerTime / 60, g_advancedSettings.m_iEpgLingerTime % 60, 0);
-  cleanupTime.GetAsTime(iCleanupTime);
+  time_t iMaxEndTime;
+  maxEndTime.GetAsTime(iMaxEndTime);
 
   Filter filter;
-  filter.AppendWhere(PrepareSQL("iEndTime < %u", iCleanupTime));
+  filter.AppendWhere(PrepareSQL("iEndTime < %u", iMaxEndTime));
 
   return DeleteValues("epgtags", filter);
 }

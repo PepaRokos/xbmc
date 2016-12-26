@@ -1,5 +1,12 @@
-set(SOURCES PeripheralBusCEC.cpp)
+set(SOURCES PeripheralBusAddon.cpp
+            PeripheralBusApplication.cpp)
 
-set(HEADERS PeripheralBusCEC.h)
+set(HEADERS PeripheralBusAddon.h
+            PeripheralBusApplication.h)
 
-core_add_library(peripheral_bus_cec)
+if(CEC_FOUND)
+  list(APPEND SOURCES PeripheralBusCEC.cpp)
+  list(APPEND HEADERS PeripheralBusCEC.h)
+endif()
+
+core_add_library(peripheral_bus_virtual)

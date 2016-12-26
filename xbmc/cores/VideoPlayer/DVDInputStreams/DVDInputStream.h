@@ -21,6 +21,7 @@
  */
 
 #include <string>
+#include <vector>
 #include "utils/BitstreamStats.h"
 #include "filesystem/IFileTypes.h"
 
@@ -37,10 +38,11 @@ enum DVDStreamType
   DVDSTREAM_TYPE_MEMORY = 4,
   DVDSTREAM_TYPE_FFMPEG = 5,
   DVDSTREAM_TYPE_TV     = 6,
-  DVDSTREAM_TYPE_RTMP   = 7,
   DVDSTREAM_TYPE_MPLS   = 10,
   DVDSTREAM_TYPE_BLURAY = 11,
   DVDSTREAM_TYPE_PVRMANAGER = 12,
+  DVDSTREAM_TYPE_MULTIFILES = 13,
+  DVDSTREAM_TYPE_ADDON = 14
 };
 
 #define SEEK_POSSIBLE 0x10 // flag used to check if protocol allows seeks
@@ -68,11 +70,11 @@ public:
     virtual int GetTime() = 0;
   };
 
-  class ISeekTime
+  class IPosTime
   {
     public:
-    virtual ~ISeekTime() {};
-    virtual bool SeekTime(int ms) = 0;
+    virtual ~IPosTime() {};
+    virtual bool PosTime(int ms) = 0;
   };
 
   class IChapter
@@ -112,25 +114,21 @@ public:
     virtual bool SetState(const std::string &xmlstate) = 0;
   };
 
-  class ISeekable
-  {
-    public:
-    virtual ~ISeekable() {};
-    virtual bool CanSeek()  = 0;
-    virtual bool CanPause() = 0;
-  };
-
   class IDemux
   {
     public:
+    virtual ~IDemux() {}
     virtual bool OpenDemux() = 0;
     virtual DemuxPacket* ReadDemux() = 0;
-    virtual CDemuxStream* GetStream(int iStreamId) = 0;
-    virtual int GetNrOfStreams() = 0;
+    virtual CDemuxStream* GetStream(int iStreamId) const = 0;
+    virtual std::vector<CDemuxStream*> GetStreams() const = 0;
+    virtual void EnableStream(int iStreamId, bool enable) = 0;
+    virtual int GetNrOfStreams() const = 0;
     virtual void SetSpeed(int iSpeed) = 0;
-    virtual bool SeekTime(int time, bool backward = false, double* startpts = NULL) = 0;
+    virtual bool SeekTime(double time, bool backward = false, double* startpts = NULL) = 0;
     virtual void AbortDemux() = 0;
     virtual void FlushDemux() = 0;
+    virtual void SetVideoResolution(int width, int height) {};
   };
 
   enum ENextStream
@@ -140,7 +138,7 @@ public:
     NEXTSTREAM_RETRY,
   };
 
-  CDVDInputStream(DVDStreamType m_streamType, CFileItem& fileitem);
+  CDVDInputStream(DVDStreamType m_streamType, const CFileItem& fileitem);
   virtual ~CDVDInputStream();
   virtual bool Open();
   virtual void Close();
@@ -155,6 +153,8 @@ public:
   virtual void Abort() {}
   virtual int GetBlockSize() { return 0; }
   virtual void ResetScanTimeout(unsigned int iTimeoutMs) { }
+  virtual bool CanSeek() { return true; }
+  virtual bool CanPause() { return true; }
 
   /*! \brief Indicate expected read rate in bytes per second.
    *  This could be used to throttle caching rate. Should
@@ -179,6 +179,10 @@ public:
 
   // interfaces
   virtual IDemux* GetIDemux() { return nullptr; }
+  virtual IPosTime* GetIPosTime() { return nullptr; }
+  virtual IDisplayTime* GetIDisplayTime() { return nullptr; }
+
+  const CVariant &GetProperty(const std::string key){ return m_item.GetProperty(key); }
 
 protected:
   DVDStreamType m_streamType;

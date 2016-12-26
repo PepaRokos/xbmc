@@ -20,6 +20,7 @@
  *
  */
 
+#include <atomic>
 #include <map>
 #include <string>
 #include <utility>
@@ -35,8 +36,8 @@ class CCriticalSection;
 /// free to add it. The main purpose currently is to provide an easy
 /// way to publish services in the different StartXXX/StopXXX methods
 /// in CApplication
-/// TODO: Make me safe for use in static initialization. CritSec is a static member :/
-///       use e.g. loki's singleton implementation to make do it properly
+//! @todo Make me safe for use in static initialization. CritSec is a static member :/
+//!       use e.g. loki's singleton implementation to make do it properly
 class CZeroconf
 {
 public:
@@ -135,7 +136,7 @@ private:
   bool m_started;
 
   //protects singleton creation/destruction
-  static long sm_singleton_guard;
+  static std::atomic_flag sm_singleton_guard;
   static CZeroconf* smp_instance;
 
   class CPublish : public CJob

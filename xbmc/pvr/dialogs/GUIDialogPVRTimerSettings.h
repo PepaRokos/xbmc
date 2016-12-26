@@ -19,25 +19,23 @@
  *
  */
 
-#include "pvr/channels/PVRChannel.h" // PVR_CHANNEL_INVALID_UID
+#include "addons/kodi-addon-dev-kit/include/kodi/xbmc_pvr_types.h" // PVR_CHANNEL_INVALID_UID
 #include "settings/dialogs/GUIDialogSettingsManualBase.h"
+#include "settings/SettingConditions.h"
+#include "settings/lib/SettingDependency.h"
+
+#include "pvr/PVRTypes.h"
 
 #include <map>
-#include <memory>
 #include <utility>
 #include <vector>
+#include <string>
 
 class CFileItem;
 class CSetting;
 
 namespace PVR
 {
-  class CPVRTimerInfoTag;
-  typedef std::shared_ptr<CPVRTimerInfoTag> CPVRTimerInfoTagPtr;
-
-  class CPVRTimerType;
-  typedef std::shared_ptr<CPVRTimerType> CPVRTimerTypePtr;
-
   class CGUIDialogPVRTimerSettings : public CGUIDialogSettingsManualBase
   {
   public:
@@ -46,7 +44,7 @@ namespace PVR
 
     virtual bool CanBeActivated() const;
 
-    void SetTimer(CFileItem *item);
+    void SetTimer(const CPVRTimerInfoTagPtr &timer);
 
   protected:
     // implementation of ISettingCallback

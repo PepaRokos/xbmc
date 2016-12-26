@@ -25,6 +25,7 @@
 #include "system.h"
 #include "SMBFile.h"
 #include "PasswordManager.h"
+#include "ServiceBroker.h"
 #include "SMBDirectory.h"
 #include <libsmbclient.h>
 #include "filesystem/SpecialProtocol.h"
@@ -64,7 +65,6 @@ bool CSMB::IsFirstInit = true;
 
 CSMB::CSMB()
 {
-  m_IdleTimeout = 0;
   m_context = NULL;
 #ifdef TARGET_POSIX
   m_OpenConnections = 0;
@@ -124,9 +124,9 @@ void CSMB::Init()
 
         // set wins server if there's one. name resolve order defaults to 'lmhosts host wins bcast'.
         // if no WINS server has been specified the wins method will be ignored.
-        if (CSettings::GetInstance().GetString(CSettings::SETTING_SMB_WINSSERVER).length() > 0 && !StringUtils::EqualsNoCase(CSettings::GetInstance().GetString(CSettings::SETTING_SMB_WINSSERVER), "0.0.0.0") )
+        if (CServiceBroker::GetSettings().GetString(CSettings::SETTING_SMB_WINSSERVER).length() > 0 && !StringUtils::EqualsNoCase(CServiceBroker::GetSettings().GetString(CSettings::SETTING_SMB_WINSSERVER), "0.0.0.0") )
         {
-          fprintf(f, "\twins server = %s\n", CSettings::GetInstance().GetString(CSettings::SETTING_SMB_WINSSERVER).c_str());
+          fprintf(f, "\twins server = %s\n", CServiceBroker::GetSettings().GetString(CSettings::SETTING_SMB_WINSSERVER).c_str());
           fprintf(f, "\tname resolve order = bcast wins host\n");
         }
         else
@@ -162,8 +162,8 @@ void CSMB::Init()
     smbc_setOptionBrowseMaxLmbCount(m_context, 0);
     smbc_setTimeout(m_context, g_advancedSettings.m_sambaclienttimeout * 1000);
     // we do not need to strdup these, smbc_setXXX below will make their own copies
-    if (CSettings::GetInstance().GetString(CSettings::SETTING_SMB_WORKGROUP).length() > 0)
-      smbc_setWorkgroup(m_context, (char*)CSettings::GetInstance().GetString(CSettings::SETTING_SMB_WORKGROUP).c_str());
+    if (CServiceBroker::GetSettings().GetString(CSettings::SETTING_SMB_WORKGROUP).length() > 0)
+      smbc_setWorkgroup(m_context, (char*)CServiceBroker::GetSettings().GetString(CSettings::SETTING_SMB_WORKGROUP).c_str());
     std::string guest = "guest";
     smbc_setUser(m_context, (char*)guest.c_str());
 #else
@@ -175,8 +175,8 @@ void CSMB::Init()
     m_context->options.browse_max_lmb_count = 0;
     m_context->timeout = g_advancedSettings.m_sambaclienttimeout * 1000;
     // we need to strdup these, they will get free'ed on smbc_free_context
-    if (CSettings::GetInstance().GetString(CSettings::SETTING_SMB_WORKGROUP).length() > 0)
-      m_context->workgroup = strdup(CSettings::GetInstance().GetString(CSettings::SETTING_SMB_WORKGROUP).c_str());
+    if (CServiceBroker::GetSettings().GetString(CSettings::SETTING_SMB_WORKGROUP).length() > 0)
+      m_context->workgroup = strdup(CServiceBroker::GetSettings().GetString(CSettings::SETTING_SMB_WORKGROUP).c_str());
     m_context->user = strdup("guest");
 #endif
 
@@ -305,6 +305,7 @@ CSMBFile::CSMBFile()
   smb.Init();
   m_fd = -1;
   smb.AddActiveConnection();
+  m_allowRetry = true;
 }
 
 CSMBFile::~CSMBFile()
@@ -390,13 +391,13 @@ int CSMBFile::OpenFile(std::string& strAuth)
   std::string strPath = g_passwordManager.GetSMBAuthFilename(strAuth);
 
   fd = smbc_open(strPath.c_str(), O_RDONLY, 0);
-  // TODO: Run a loop here that prompts for our username/password as appropriate?
-  // We have the ability to run a file (eg from a button action) without browsing to
-  // the directory first.  In the case of a password protected share that we do
-  // not have the authentication information for, the above smbc_open() will have
-  // returned negative, and the file will not be opened.  While this is not a particular
-  // likely scenario, we might want to implement prompting for the password in this case.
-  // The code from SMBDirectory can be used for this.
+  //! @todo Run a loop here that prompts for our username/password as appropriate?
+  //! We have the ability to run a file (eg from a button action) without browsing to
+  //! the directory first.  In the case of a password protected share that we do
+  //! not have the authentication information for, the above smbc_open() will have
+  //! returned negative, and the file will not be opened.  While this is not a particular
+  //! likely scenario, we might want to implement prompting for the password in this case.
+  //! The code from SMBDirectory can be used for this.
   if(fd >= 0)
     strAuth = strPath;
 
@@ -515,7 +516,7 @@ ssize_t CSMBFile::Read(void *lpBuf, size_t uiBufSize)
 
   ssize_t bytesRead = smbc_read(m_fd, lpBuf, (int)uiBufSize);
 
-  if ( bytesRead < 0 && errno == EINVAL )
+  if (m_allowRetry && bytesRead < 0 && errno == EINVAL )
   {
     CLog::Log(LOGERROR, "%s - Error( %" PRIdS ", %d, %s ) - Retrying", __FUNCTION__, bytesRead, errno, strerror(errno));
     bytesRead = smbc_read(m_fd, lpBuf, (int)uiBufSize);
@@ -642,4 +643,18 @@ std::string CSMBFile::GetAuthenticatedPath(const CURL &url)
   CURL authURL(url);
   CPasswordManager::GetInstance().AuthenticateURL(authURL);
   return smb.URLEncode(authURL);
+}
+
+int CSMBFile::IoControl(EIoControl request, void* param)
+{
+  if (request == IOCTRL_SEEK_POSSIBLE)
+    return 1;
+
+  if (request == IOCTRL_SET_RETRY)
+  {
+    m_allowRetry = *(bool*) param;
+    return 0;
+  }
+
+  return -1;
 }

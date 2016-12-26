@@ -33,9 +33,9 @@ set(HEADERS AddonBuiltins.h
             SystemBuiltins.h
             WeatherBuiltins.h)
 
-core_add_library(interfaces_builtins)
-add_dependencies(interfaces_builtins libcpluff)
-
-if(ENABLE_INTERNAL_FFMPEG)
-  add_dependencies(interfaces_builtins ffmpeg)
+if(CORE_SYSTEM_NAME STREQUAL android)
+  list(APPEND SOURCES AndroidBuiltins.cpp)
+  list(APPEND HEADERS AndroidBuiltins.h)
 endif()
+
+core_add_library(interfaces_builtins)

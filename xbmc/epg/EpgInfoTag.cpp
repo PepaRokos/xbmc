@@ -18,7 +18,8 @@
  *
  */
 
-#include "addons/include/xbmc_pvr_types.h"
+#include "ServiceBroker.h"
+#include "addons/kodi-addon-dev-kit/include/kodi/xbmc_pvr_types.h"
 #include "guilib/LocalizeStrings.h"
 #include "pvr/PVRManager.h"
 #include "pvr/addons/PVRClients.h"
@@ -59,7 +60,7 @@ CEpgInfoTag::CEpgInfoTag(void) :
 {
 }
 
-CEpgInfoTag::CEpgInfoTag(CEpg *epg, PVR::CPVRChannelPtr pvrChannel, const std::string &strTableName /* = "" */, const std::string &strIconPath /* = "" */) :
+CEpgInfoTag::CEpgInfoTag(CEpg *epg, const PVR::CPVRChannelPtr &pvrChannel, const std::string &strTableName /* = "" */, const std::string &strIconPath /* = "" */) :
     m_bNotify(false),
     m_iBroadcastId(-1),
     m_iGenreType(0),
@@ -134,8 +135,6 @@ CEpgInfoTag::CEpgInfoTag(const EPG_TAG &data) :
 
 CEpgInfoTag::~CEpgInfoTag()
 {
-  ClearTimer();
-  ClearRecording();
 }
 
 bool CEpgInfoTag::operator ==(const CEpgInfoTag& right) const
@@ -264,9 +263,9 @@ float CEpgInfoTag::ProgressPercentage(void) const
   iDuration = endTime - startTime > 0 ? endTime - startTime : 3600;
 
   if (currentTime >= startTime && currentTime <= endTime)
-    fReturn = ((float) currentTime - startTime) / iDuration * 100;
+    fReturn = static_cast<float>(currentTime - startTime) * 100.0f / iDuration;
   else if (currentTime > endTime)
-    fReturn = 100;
+    fReturn = 100.0f;
 
   return fReturn;
 }
@@ -288,11 +287,6 @@ int CEpgInfoTag::Progress(void) const
 CEpgInfoTagPtr CEpgInfoTag::GetNextEvent(void) const
 {
   return GetTable()->GetNextEvent(*this);
-}
-
-CEpgInfoTagPtr CEpgInfoTag::GetPreviousEvent(void) const
-{
-  return GetTable()->GetPreviousEvent(*this);
 }
 
 void CEpgInfoTag::SetUniqueBroadcastID(unsigned int iUniqueBroadcastID)
@@ -347,20 +341,24 @@ int CEpgInfoTag::GetDuration(void) const
   return end - start > 0 ? end - start : 3600;
 }
 
+bool CEpgInfoTag::IsParentalLocked() const
+{
+  CPVRChannelPtr channel;
+  {
+    CSingleLock lock(m_critSection);
+    channel = m_pvrChannel;
+  }
+
+  return channel && g_PVRManager.IsParentalLocked(channel);
+}
+
 std::string CEpgInfoTag::Title(bool bOverrideParental /* = false */) const
 {
   std::string strTitle;
-  bool bParentalLocked(false);
 
-  {
-    CSingleLock lock(m_critSection);
-    if (m_pvrChannel)
-      bParentalLocked = g_PVRManager.IsParentalLocked(m_pvrChannel);
-  }
-
-  if (!bOverrideParental && bParentalLocked)
+  if (!bOverrideParental && IsParentalLocked())
     strTitle = g_localizeStrings.Get(19266); // parental locked
-  else if (m_strTitle.empty() && !CSettings::GetInstance().GetBool(CSettings::SETTING_EPG_HIDENOINFOAVAILABLE))
+  else if (m_strTitle.empty() && !CServiceBroker::GetSettings().GetBool(CSettings::SETTING_EPG_HIDENOINFOAVAILABLE))
     strTitle = g_localizeStrings.Get(19055); // no information available
   else
     strTitle = m_strTitle;
@@ -372,11 +370,8 @@ std::string CEpgInfoTag::PlotOutline(bool bOverrideParental /* = false */) const
 {
   std::string retVal;
 
-  {
-    CSingleLock lock(m_critSection);
-    if (bOverrideParental || !m_pvrChannel || !g_PVRManager.IsParentalLocked(m_pvrChannel))
-      retVal = m_strPlotOutline;
-  }
+  if (bOverrideParental || !IsParentalLocked())
+    retVal = m_strPlotOutline;
 
   return retVal;
 }
@@ -385,11 +380,8 @@ std::string CEpgInfoTag::Plot(bool bOverrideParental /* = false */) const
 {
   std::string retVal;
 
-  {
-    CSingleLock lock(m_critSection);
-    if (bOverrideParental || !m_pvrChannel || !g_PVRManager.IsParentalLocked(m_pvrChannel))
-      retVal = m_strPlot;
-  }
+  if (bOverrideParental || !IsParentalLocked())
+    retVal = m_strPlot;
 
   return retVal;
 }
@@ -398,11 +390,8 @@ std::string CEpgInfoTag::OriginalTitle(bool bOverrideParental /* = false */) con
 {
   std::string retVal;
 
-  {
-    CSingleLock lock(m_critSection);
-    if (bOverrideParental || !m_pvrChannel || !g_PVRManager.IsParentalLocked(m_pvrChannel))
-      retVal = m_strOriginalTitle;
-  }
+  if (bOverrideParental || !IsParentalLocked())
+    retVal = m_strOriginalTitle;
 
   return retVal;
 }
@@ -540,7 +529,7 @@ CPVRTimerInfoTagPtr CEpgInfoTag::Timer(void) const
   return m_timer;
 }
 
-void CEpgInfoTag::SetPVRChannel(PVR::CPVRChannelPtr channel)
+void CEpgInfoTag::SetPVRChannel(const PVR::CPVRChannelPtr &channel)
 {
   CSingleLock lock(m_critSection);
   m_pvrChannel = channel;
@@ -713,9 +702,9 @@ const int CEpgInfoTag::EpgID(void) const
   return m_epg ? m_epg->EpgID() : -1;
 }
 
-void CEpgInfoTag::SetTimer(unsigned int iTimerId)
+void CEpgInfoTag::SetTimer(const CPVRTimerInfoTagPtr &timer)
 {
-  m_timer = g_PVRTimers->GetById(iTimerId);
+  m_timer = timer;
 }
 
 void CEpgInfoTag::ClearTimer(void)
@@ -729,7 +718,7 @@ void CEpgInfoTag::ClearTimer(void)
     previousTag->ClearEpgTag();
 }
 
-void CEpgInfoTag::SetRecording(CPVRRecordingPtr recording)
+void CEpgInfoTag::SetRecording(const CPVRRecordingPtr &recording)
 {
   CSingleLock lock(m_critSection);
   m_recording = recording;
@@ -756,4 +745,13 @@ CPVRRecordingPtr CEpgInfoTag::Recording(void) const
 void CEpgInfoTag::SetEpg(CEpg *epg)
 {
   m_epg = epg;
+}
+
+bool CEpgInfoTag::IsSeries(void) const
+{
+  CSingleLock lock(m_critSection);
+  if ((m_iFlags & EPG_TAG_FLAG_IS_SERIES) > 0 || SeriesNumber() > 0 || EpisodeNumber() > 0 || EpisodePart() > 0)
+    return true;
+  else
+    return false;
 }

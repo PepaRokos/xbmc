@@ -9,7 +9,7 @@ if(NOT ENABLE_EXTERNAL_LIBAV)
   list(APPEND HEADERS DVDVideoPPFFmpeg.h)
 endif()
 
-if(AMLCODEC_FOUND)
+if(AML_FOUND)
   list(APPEND SOURCES AMLCodec.cpp
                       DVDVideoCodecAmlogic.cpp)
   list(APPEND HEADERS AMLCodec.h
@@ -40,22 +40,17 @@ if(VAAPI_FOUND)
   list(APPEND HEADERS VAAPI.h)
 endif()
 
-if(CORE_SYSTEM_NAME STREQUAL darwin)
-  list(APPEND SOURCES DVDVideoCodecVDA.cpp
-                      VDA.cpp)
-  list(APPEND HEADERS DVDVideoCodecVDA.h
-                      VDA.h)
-endif()
-
-if(VTB_FOUND)
-  list(APPEND SOURCES DVDVideoCodecVideoToolBox.cpp)
+if(APPLE)
+  list(APPEND SOURCES VTB.cpp)
   list(APPEND HEADERS DllVideoToolBox.h
-                      DVDVideoCodecVideoToolBox.h)
+                      VTB.h)
 endif()
 
 if(MMAL_FOUND)
   list(APPEND SOURCES MMALCodec.cpp)
   list(APPEND HEADERS MMALCodec.h)
+  list(APPEND SOURCES MMALFFmpeg.cpp)
+  list(APPEND HEADERS MMALFFmpeg.h)
 endif()
 
 if(IMX_FOUND)
@@ -69,7 +64,3 @@ if(CORE_SYSTEM_NAME STREQUAL android)
 endif()
 
 core_add_library(dvdvideocodecs)
-
-if(ENABLE_INTERNAL_FFMPEG)
-  add_dependencies(dvdvideocodecs ffmpeg)
-endif()

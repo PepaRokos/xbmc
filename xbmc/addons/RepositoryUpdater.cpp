@@ -20,7 +20,7 @@
 
 #include "RepositoryUpdater.h"
 #include "Application.h"
-#include "GUIUserMessages.h"
+#include "ServiceBroker.h"
 #include "addons/AddonInstaller.h"
 #include "addons/AddonManager.h"
 #include "addons/AddonSystemSettings.h"
@@ -65,9 +65,10 @@ void CRepositoryUpdater::OnJobComplete(unsigned int jobID, bool success, CJob* j
     CLog::Log(LOGDEBUG, "CRepositoryUpdater: done.");
     m_doneEvent.Set();
 
-    if (CSettings::GetInstance().GetInt(CSettings::SETTING_ADDONS_AUTOUPDATES) == AUTO_UPDATES_NOTIFY)
+    VECADDONS updates = CAddonMgr::GetInstance().GetAvailableUpdates();
+
+    if (CServiceBroker::GetSettings().GetInt(CSettings::SETTING_ADDONS_AUTOUPDATES) == AUTO_UPDATES_NOTIFY)
     {
-      VECADDONS updates = CAddonMgr::GetInstance().GetAvailableUpdates();
       if (!updates.empty())
       {
         if (updates.size() == 1)
@@ -84,13 +85,18 @@ void CRepositoryUpdater::OnJobComplete(unsigned int jobID, bool success, CJob* j
       }
     }
 
-    if (CSettings::GetInstance().GetInt(CSettings::SETTING_ADDONS_AUTOUPDATES) == AUTO_UPDATES_ON)
-      CAddonInstaller::GetInstance().InstallUpdates();
+    if (CServiceBroker::GetSettings().GetInt(CSettings::SETTING_ADDONS_AUTOUPDATES) == AUTO_UPDATES_ON)
+    {
+      for (const auto& addon : updates)
+      {
+        if (!CAddonMgr::GetInstance().IsBlacklisted(addon->ID()))
+          CAddonInstaller::GetInstance().InstallOrUpdate(addon->ID());
+      }
+    }
 
     ScheduleUpdate();
 
-    CGUIMessage msg(GUI_MSG_NOTIFY_ALL, 0, 0, GUI_MSG_UPDATE);
-    g_windowManager.SendThreadMessage(msg);
+    m_events.Publish(RepositoryUpdated{});
   }
 }
 
@@ -192,7 +198,7 @@ void CRepositoryUpdater::ScheduleUpdate()
   CSingleLock lock(m_criticalSection);
   m_timer.Stop(true);
 
-  if (CSettings::GetInstance().GetInt(CSettings::SETTING_ADDONS_AUTOUPDATES) == AUTO_UPDATES_NEVER)
+  if (CServiceBroker::GetSettings().GetInt(CSettings::SETTING_ADDONS_AUTOUPDATES) == AUTO_UPDATES_NEVER)
     return;
 
   if (!CAddonMgr::GetInstance().HasAddons(ADDON_REPOSITORY))

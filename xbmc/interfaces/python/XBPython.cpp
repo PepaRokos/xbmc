@@ -18,10 +18,6 @@
  *
  */
 
-#if (defined HAVE_CONFIG_H) && (!defined TARGET_WINDOWS)
-  #include "config.h"
-#endif
-
 // python.h should always be included first before any other includes
 #include <Python.h>
 
@@ -38,7 +34,6 @@
 #include "utils/Variant.h"
 #include "Util.h"
 #ifdef TARGET_WINDOWS
-#pragma comment(linker, "\"/manifestdependency:type='Win32' name='Microsoft.VC90.CRT' version='9.0.21022.8' processorArchitecture='x86' publicKeyToken='1fc8b3b9a1e18e3b'\"")
 #include "utils/Environment.h"
 #endif
 #include "settings/AdvancedSettings.h"
@@ -559,7 +554,6 @@ bool XBPython::OnScriptInitialized(ILanguageInvoker *invoker)
     }
 #endif
 
-
     // Darwin packs .pyo files, we need PYTHONOPTIMIZE on in order to load them.
     // linux built with unified builds only packages the pyo files so need it
 #if defined(TARGET_DARWIN) || defined(TARGET_LINUX)
@@ -595,9 +589,6 @@ bool XBPython::OnScriptInitialized(ILanguageInvoker *invoker)
     CEnvironment::putenv(buf);
     buf = "OS=win32";
     CEnvironment::putenv(buf);
-
-#elif defined(TARGET_ANDROID)
-   setenv("SSL_CERT_FILE", CSpecialProtocol::TranslatePath("special://xbmc/system/certs/cacert.pem").c_str(), 1);
 #endif
 
     if (PyEval_ThreadsInitialized())

@@ -32,6 +32,7 @@ function usage {
        [-p | --prefix]    ... ffmepg install prefix
        [-d | --download]  ... no build, download tarfile only
        [-r | --release]   ... disable debugging symbols
+       [-s | --shared]    ... build shared libraries
        [-j]               ... make concurrency level
        [--cpu=CPU]        ... minimum required CPU
        [--arch=ARCH]      ... select architecture
@@ -60,6 +61,10 @@ do
       ;;
     -r | --release)
       FLAGS="$FLAGS --disable-debug" 
+      shift
+      ;;
+    -s | --shared)
+      FLAGS="$FLAGS --enable-shared"
       shift
       ;;
     --disable-optimizations)
@@ -152,18 +157,14 @@ CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" \
 	--enable-encoder=aac \
 	--enable-encoder=wmav2 \
 	--enable-protocol=http \
-	--enable-libvorbis \
-	--enable-muxer=ogg \
-	--enable-encoder=libvorbis \
 	--enable-encoder=png \
 	--enable-encoder=mjpeg \
 	--enable-nonfree \
 	--enable-pthreads \
+	--enable-pic \
 	--enable-zlib \
-	--disable-mips32r2 \
-	--disable-mipsdspr1 \
+	--disable-mipsdsp \
 	--disable-mipsdspr2 \
-	--enable-libdcadec \
         ${FLAGS}
 
 make -j ${BUILDTHREADS} 

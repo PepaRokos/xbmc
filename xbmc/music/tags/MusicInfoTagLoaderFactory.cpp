@@ -66,7 +66,7 @@ IMusicInfoTagLoader* CMusicInfoTagLoaderFactory::CreateLoader(const CFileItem& i
     if (dec->HasTags() && dec->GetExtensions().find("."+strExtension) != std::string::npos)
     {
       CAudioDecoder* result = new CAudioDecoder(*dec);
-      static_cast<AudioDecoderDll&>(*result).Create();
+      result->Create();
       return result;
     }
   }
@@ -80,6 +80,7 @@ IMusicInfoTagLoader* CMusicInfoTagLoaderFactory::CreateLoader(const CFileItem& i
       strExtension == "m4a" || strExtension == "mp4" ||
       strExtension == "mpc" || strExtension == "mpp" || strExtension == "mp+" ||
       strExtension == "ogg" || strExtension == "oga" || strExtension == "oggstream" ||
+      strExtension == "opus" ||
       strExtension == "aif" || strExtension == "aiff" ||
       strExtension == "wav" ||
       strExtension == "mod" ||
@@ -102,7 +103,7 @@ IMusicInfoTagLoader* CMusicInfoTagLoaderFactory::CreateLoader(const CFileItem& i
     return (IMusicInfoTagLoader*)pTagLoader;
   }
   else if (strExtension == "mka" || strExtension == "dsf" ||
-           strExtension == "dff" || strExtension == "opus")
+           strExtension == "dff")
     return new CMusicInfoTagLoaderFFmpeg();
 
   return NULL;

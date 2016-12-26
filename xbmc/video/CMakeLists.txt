@@ -1,5 +1,5 @@
 set(SOURCES Bookmark.cpp
-            FFmpegVideoDecoder.cpp
+            ContextMenus.cpp
             GUIViewStateVideo.cpp
             PlayerController.cpp
             Teletext.cpp
@@ -10,11 +10,12 @@ set(SOURCES Bookmark.cpp
             VideoInfoTag.cpp
             VideoLibraryQueue.cpp
             VideoReferenceClock.cpp
-            VideoThumbLoader.cpp)
+            VideoThumbLoader.cpp
+            ViewModeSettings.cpp)
 
 set(HEADERS Bookmark.h
+            ContextMenus.h
             Episode.h
-            FFmpegVideoDecoder.h
             GUIViewStateVideo.h
             PlayerController.h
             Teletext.h
@@ -29,8 +30,3 @@ set(HEADERS Bookmark.h
             VideoThumbLoader.h)
 
 core_add_library(video)
-add_dependencies(video libcpluff)
-
-if(ENABLE_INTERNAL_FFMPEG)
-  add_dependencies(video ffmpeg)
-endif()

@@ -40,50 +40,70 @@
 #include "guilib/Geometry.h"
 #include "rendering/RenderSystem.h"
 #include "cores/VideoPlayer/VideoRenderers/BaseRenderer.h"
+#include "cores/VideoPlayer/DVDResource.h"
+
+
+enum MMALState { MMALStateNone, MMALStateHWDec, MMALStateFFDec, MMALStateDeint, };
 
 class CMMALVideo;
+class CMMALRenderer;
+class CMMALPool;
 
 // a mmal video frame
-class CMMALVideoBuffer
+class CMMALBuffer : public IDVDResourceCounted<CMMALBuffer>
 {
 public:
-  CMMALVideoBuffer(CMMALVideo *omv);
-  virtual ~CMMALVideoBuffer();
-
+  CMMALBuffer(std::shared_ptr<CMMALPool> pool) : m_pool(pool) {}
+  virtual ~CMMALBuffer() {}
   MMAL_BUFFER_HEADER_T *mmal_buffer;
-  int width;
-  int height;
+  unsigned int m_width;
+  unsigned int m_height;
+  unsigned int m_aligned_width;
+  unsigned int m_aligned_height;
+  uint32_t m_encoding;
   float m_aspect_ratio;
-  // reference counting
-  CMMALVideoBuffer* Acquire();
-  long              Release();
+  MMALState m_state;
+  bool m_rendered;
+  bool m_stills;
+  std::shared_ptr<CMMALPool> m_pool;
+  void SetVideoDeintMethod(std::string method);
+  const char *GetStateName() {
+    static const char *names[] = { "MMALStateNone", "MMALStateHWDec", "MMALStateFFDec", "MMALStateDeint", };
+    if ((size_t)m_state < vcos_countof(names))
+      return names[(size_t)m_state];
+    else
+      return "invalid";
+  }
+};
+
+// a mmal video frame
+class CMMALVideoBuffer : public CMMALBuffer
+{
+public:
+  CMMALVideoBuffer(CMMALVideo *dec, std::shared_ptr<CMMALPool> pool);
+  virtual ~CMMALVideoBuffer();
   CMMALVideo *m_omv;
-  long m_refs;
-private:
+protected:
 };
 
 class CMMALVideo : public CDVDVideoCodec
 {
 public:
-  CMMALVideo();
+  CMMALVideo(CProcessInfo &processInfo);
   virtual ~CMMALVideo();
 
   // Required overrides
   virtual bool Open(CDVDStreamInfo &hints, CDVDCodecOptions &options);
-  virtual void Dispose(void);
   virtual int  Decode(uint8_t *pData, int iSize, double dts, double pts);
   virtual void Reset(void);
   virtual bool GetPicture(DVDVideoPicture *pDvdVideoPicture);
   virtual bool ClearPicture(DVDVideoPicture* pDvdVideoPicture);
-  virtual unsigned GetAllowedReferences() { return 3; }
+  virtual unsigned GetAllowedReferences() { return 4; }
   virtual void SetDropState(bool bDrop);
   virtual const char* GetName(void) { return m_pFormatName ? m_pFormatName:"mmal-xxx"; }
   virtual bool GetCodecStats(double &pts, int &droppedPics);
   virtual void SetCodecControl(int flags);
   virtual void SetSpeed(int iSpeed);
-
-  // MMAL decoder callback routines.
-  void Recycle(MMAL_BUFFER_HEADER_T *buffer);
 
   // MMAL decoder callback routines.
   void dec_output_port_cb(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer);
@@ -92,13 +112,13 @@ public:
 
 protected:
   void QueryCodec(void);
-  bool CreateDeinterlace(EINTERLACEMETHOD interlace_method);
-  bool DestroyDeinterlace();
-  void Prime();
+  void Dispose(void);
 
   // Video format
-  int               m_decoded_width;
-  int               m_decoded_height;
+  unsigned int      m_decoded_width;
+  unsigned int      m_decoded_height;
+  unsigned int      m_decoded_aligned_width;
+  unsigned int      m_decoded_aligned_height;
   unsigned int      m_egl_buffer_count;
   bool              m_finished;
   float             m_aspect_ratio;
@@ -119,23 +139,24 @@ protected:
   unsigned          m_num_decoded;
   // Components
   MMAL_INTERLACETYPE_T m_interlace_mode;
-  EINTERLACEMETHOD  m_interlace_method;
   double            m_demuxerPts;
   double            m_decoderPts;
   int               m_speed;
   int               m_codecControlFlags;
   bool              m_dropState;
+  bool              m_preroll;
+  bool              m_got_eos;
+  uint32_t          m_packet_num;
+  uint32_t          m_packet_num_eos;
 
   CCriticalSection m_sharedSection;
   MMAL_COMPONENT_T *m_dec;
   MMAL_PORT_T *m_dec_input;
   MMAL_PORT_T *m_dec_output;
   MMAL_POOL_T *m_dec_input_pool;
-  MMAL_POOL_T *m_vout_input_pool;
+  std::shared_ptr<CMMALPool> m_pool;
 
   MMAL_ES_FORMAT_T *m_es_format;
-  MMAL_COMPONENT_T *m_deint;
-  MMAL_CONNECTION_T *m_deint_connection;
 
   MMAL_FOURCC_T m_codingType;
   bool change_dec_output_format();

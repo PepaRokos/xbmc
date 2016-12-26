@@ -20,9 +20,14 @@
  *
  */
 
-#include "addons/Addon.h"
-#include "windows/GUIMediaWindow.h"
+#include <string>
+#include <vector>
+#include "Addon.h"
+#include "AddonEvents.h"
+#include "RepositoryUpdater.h"
 #include "ThumbLoader.h"
+#include "windows/GUIMediaWindow.h"
+
 
 class CFileItem;
 class CFileItemList;
@@ -59,23 +64,23 @@ public:
    */
   static int SelectAddonID(ADDON::TYPE type, std::vector<std::string> &addonIDs, bool showNone = false, bool showDetails = true, bool multipleSelection = true, bool showInstalled = true, bool showInstallable = false, bool showMore = true);
   static int SelectAddonID(const std::vector<ADDON::TYPE> &types, std::vector<std::string> &addonIDs, bool showNone = false, bool showDetails = true, bool multipleSelection = true, bool showInstalled = true, bool showInstallable = false, bool showMore = true);
+
+  bool UseFileDirectories() override { return false; }
   
 protected:
-  /* \brief set label2 of an item based on the Addon.Status property
-   \param item the item to update
-   */
-  void SetItemLabel2(CFileItemPtr item);
-
-  virtual void GetContextButtons(int itemNumber, CContextButtons &buttons) override;
-  virtual bool OnContextButton(int itemNumber, CONTEXT_BUTTON button) override;
   virtual bool OnClick(int iItem, const std::string &player = "") override;
   virtual void UpdateButtons() override;
   virtual bool GetDirectory(const std::string &strDirectory, CFileItemList &items) override;
   virtual bool Update(const std::string &strDirectory, bool updateFilterPath = true) override;
   virtual std::string GetStartFolder(const std::string &dir) override;
 
+  std::string GetRootPath() const override { return "addons://"; }
+
 private:
   void SetProperties();
+  void UpdateStatus(const CFileItemPtr& item);
+  void OnEvent(const ADDON::CRepositoryUpdater::RepositoryUpdated& event);
+  void OnEvent(const ADDON::AddonEvent& event);
   CProgramThumbLoader m_thumbLoader;
 };
 

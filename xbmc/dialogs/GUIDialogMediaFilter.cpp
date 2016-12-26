@@ -40,9 +40,9 @@
 
 #define CONTROL_HEADING             2
 
-#define CONTROL_CLEAR_BUTTON       27
 #define CONTROL_OKAY_BUTTON        28
 #define CONTROL_CANCEL_BUTTON      29
+#define CONTROL_CLEAR_BUTTON       30
 
 #define CHECK_ALL                  -1
 #define CHECK_NO                    0
@@ -100,13 +100,15 @@ static const CGUIDialogMediaFilter::Filter filterList[] = {
   { "artists",      FieldGenre,         515,    SettingTypeList,    "list",   "string",   CDatabaseQueryRule::OPERATOR_EQUALS },
 
   { "albums",       FieldAlbum,         556,    SettingTypeString,  "edit",   "string",   CDatabaseQueryRule::OPERATOR_CONTAINS },
-  { "albums",       FieldArtist,        557,    SettingTypeList,    "list",   "string",   CDatabaseQueryRule::OPERATOR_EQUALS },
+//  { "albums",       FieldArtist,        557,    SettingTypeList,    "list",   "string",   CDatabaseQueryRule::OPERATOR_EQUALS },
+  { "albums",       FieldAlbumArtist,   566,    SettingTypeList,    "list",   "string",   CDatabaseQueryRule::OPERATOR_EQUALS },
   { "albums",       FieldRating,        563,    SettingTypeNumber,  "range",  "number",   CDatabaseQueryRule::OPERATOR_BETWEEN },
   { "albums",       FieldUserRating,    38018,  SettingTypeInteger, "range",  "integer",  CDatabaseQueryRule::OPERATOR_BETWEEN },
   { "albums",       FieldAlbumType,     564,    SettingTypeList,    "list",   "string",   CDatabaseQueryRule::OPERATOR_EQUALS },
   { "albums",       FieldYear,          562,    SettingTypeInteger, "range",  "integer",  CDatabaseQueryRule::OPERATOR_BETWEEN },
   { "albums",       FieldGenre,         515,    SettingTypeList,    "list",   "string",   CDatabaseQueryRule::OPERATOR_EQUALS },
   { "albums",       FieldMusicLabel,    21899,  SettingTypeList,    "list",   "string",   CDatabaseQueryRule::OPERATOR_EQUALS },
+  { "albums",       FieldCompilation,   204,    SettingTypeBool,    "toggle", "",         CDatabaseQueryRule::OPERATOR_FALSE },
 
   { "songs",        FieldTitle,         556,    SettingTypeString,  "edit",   "string",   CDatabaseQueryRule::OPERATOR_CONTAINS },
   { "songs",        FieldAlbum,         558,    SettingTypeList,    "list",   "string",   CDatabaseQueryRule::OPERATOR_EQUALS },
@@ -122,7 +124,7 @@ static const CGUIDialogMediaFilter::Filter filterList[] = {
 #define NUM_FILTERS sizeof(filterList) / sizeof(CGUIDialogMediaFilter::Filter)
 
 CGUIDialogMediaFilter::CGUIDialogMediaFilter()
-  : CGUIDialogSettingsManualBase(WINDOW_DIALOG_MEDIA_FILTER, "DialogMediaFilter.xml"),
+  : CGUIDialogSettingsManualBase(WINDOW_DIALOG_MEDIA_FILTER, "DialogSettings.xml"),
     m_dbUrl(NULL),
     m_filter(NULL)
 { }
@@ -284,11 +286,6 @@ void CGUIDialogMediaFilter::OnSettingChanged(const CSetting *setting)
           strValueLower = CDateTime(static_cast<time_t>(valueLower)).GetAsDBDate();
           strValueUpper = CDateTime(static_cast<time_t>(valueUpper)).GetAsDBDate();
         }
-        else if (filter.controlFormat == "time")
-        {
-          strValueLower = CDateTime(static_cast<time_t>(valueLower)).GetAsLocalizedTime("mm:ss");
-          strValueUpper = CDateTime(static_cast<time_t>(valueUpper)).GetAsLocalizedTime("mm:ss");
-        }
         else
         {
           strValueLower = values.at(0).asString();
@@ -362,6 +359,9 @@ void CGUIDialogMediaFilter::SetupView()
 
   // set the heading
   SET_CONTROL_LABEL(CONTROL_HEADING, StringUtils::Format(g_localizeStrings.Get(1275).c_str(), g_localizeStrings.Get(localizedMediaId).c_str()));
+
+  SET_CONTROL_LABEL(CONTROL_OKAY_BUTTON, 186);
+  SET_CONTROL_LABEL(CONTROL_CLEAR_BUTTON, 192);
 }
 
 void CGUIDialogMediaFilter::InitializeSettings()
@@ -417,7 +417,7 @@ void CGUIDialogMediaFilter::InitializeSettings()
       if (filter.settingType == SettingTypeString)
         filter.setting = AddEdit(group, settingId, filter.label, 0, data.asString(), true, false, filter.label, true);
       else if (filter.settingType == SettingTypeInteger)
-        filter.setting = AddEdit(group, settingId, filter.label, 0, static_cast<int>(data.asInteger()), 0, 1, 0, false, filter.label, true);
+        filter.setting = AddEdit(group, settingId, filter.label, 0, static_cast<int>(data.asInteger()), 0, 1, 0, false,  static_cast<int>(filter.label), true);
       else if (filter.settingType == SettingTypeNumber)
         filter.setting = AddEdit(group, settingId, filter.label, 0, data.asFloat(), 0.0f, 1.0f, 0.0f, false, filter.label, true);
     }
@@ -470,7 +470,7 @@ void CGUIDialogMediaFilter::InitializeSettings()
 
         // don't create the filter if there's no real range
         if (min == max)
-          break;
+          continue;
 
         int iValueLower = valueLower.isNull() ? min : static_cast<int>(valueLower.asInteger());
         int iValueUpper = valueUpper.isNull() ? max : static_cast<int>(valueUpper.asInteger());
@@ -491,7 +491,7 @@ void CGUIDialogMediaFilter::InitializeSettings()
 
         // don't create the filter if there's no real range
         if (min == max)
-          break;
+          continue;
 
         float fValueLower = valueLower.isNull() ? min : valueLower.asFloat();
         float fValueUpper = valueUpper.isNull() ? max : valueUpper.asFloat();
@@ -677,7 +677,7 @@ int CGUIDialogMediaFilter::GetItems(const Filter &filter, std::vector<std::strin
     
     if (filter.field == FieldGenre)
       musicdb.GetGenresNav(m_dbUrl->ToString(), selectItems, dbfilter, countOnly);
-    else if (filter.field == FieldArtist)
+    else if (filter.field == FieldArtist || filter.field == FieldAlbumArtist)
       musicdb.GetArtistsNav(m_dbUrl->ToString(), selectItems, m_mediaType == "albums", -1, -1, -1, dbfilter, SortDescription(), countOnly);
     else if (filter.field == FieldAlbum)
       musicdb.GetAlbumsNav(m_dbUrl->ToString(), selectItems, -1, -1, dbfilter, SortDescription(), countOnly);
@@ -798,8 +798,8 @@ void CGUIDialogMediaFilter::GetRange(const Filter &filter, int &min, int &interv
         return;
 
       CDatabase::Filter filter;
-      filter.where = DatabaseUtils::GetField(FieldYear, m_mediaType, DatabaseQueryPartWhere) + " > 0";
-      GetMinMax(table, DatabaseUtils::GetField(FieldYear, m_mediaType, DatabaseQueryPartSelect), min, max, filter);
+      filter.where = DatabaseUtils::GetField(FieldYear, CMediaTypes::FromString(m_mediaType), DatabaseQueryPartWhere) + " > 0";
+      GetMinMax(table, DatabaseUtils::GetField(FieldYear, CMediaTypes::FromString(m_mediaType), DatabaseQueryPartSelect), min, max, filter);
     }
   }
   else if (filter.field == FieldAirDate)

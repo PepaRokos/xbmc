@@ -32,8 +32,9 @@
 #ifdef HAS_MYSQL
 #include "mysqldataset.h"
 #include "mysql/errmsg.h"
-#if defined(TARGET_WINDOWS) && !defined(BUILDING_WITH_CMAKE)
-#pragma comment(lib, "mysqlclient.lib")
+
+#ifdef TARGET_POSIX
+#include "linux/ConvUtils.h"
 #endif
 
 #define MYSQL_OK          0
@@ -182,6 +183,13 @@ int MysqlDatabase::connect(bool create_new) {
                                  NULL,
                                  compression ? CLIENT_COMPRESS : 0) != NULL)
     {
+      static bool showed_ver_info = false;
+      if (!showed_ver_info)
+      {
+        CLog::Log(LOGINFO, "MYSQL: Connected to version %s", mysql_get_server_info(conn));
+        showed_ver_info = true;
+      }
+
       // disable mysql autocommit since we handle it
       //mysql_autocommit(conn, false);
 
@@ -798,12 +806,13 @@ void MysqlDatabase::mysqlVXPrintf(
   length = 0;
   bufpt = 0;
   for(; (c=(*fmt))!=0; ++fmt){
+    bool isLike = false;
     if( c!='%' ){
       int amt;
       bufpt = (char *)fmt;
       amt = 1;
       while( (c=(*++fmt))!='%' && c!=0 ) amt++;
-      mysqlStrAccumAppend(pAccum, bufpt, amt);
+      isLike = mysqlStrAccumAppend(pAccum, bufpt, amt);
       if( c==0 ) break;
     }
     if( (c=(*++fmt))==0 ){
@@ -1167,7 +1176,11 @@ void MysqlDatabase::mysqlVXPrintf(
         int needQuote;
         char ch;
         char q = ((xtype==etSQLESCAPE3)?'"':'\'');   /* Quote character */
-        const char *escarg = va_arg(ap, char*);
+        std::string arg = va_arg(ap, char*);
+        if (isLike)
+          StringUtils::Replace(arg, "\\", "\\\\");
+        const char *escarg = arg.c_str();
+
         isnull = escarg==0;
         if( isnull ) escarg = (xtype==etSQLESCAPE2 ? "NULL" : "(NULL)");
         k = precision;
@@ -1230,15 +1243,15 @@ void MysqlDatabase::mysqlVXPrintf(
 /*
 ** Append N bytes of text from z to the StrAccum object.
 */
-void MysqlDatabase::mysqlStrAccumAppend(StrAccum *p, const char *z, int N) {
+bool MysqlDatabase::mysqlStrAccumAppend(StrAccum *p, const char *z, int N) {
   if( p->tooBig | p->mallocFailed ){
-    return;
+    return false;
   }
   if( N<0 ){
     N = strlen(z);
   }
   if( N==0 || z==0 ){
-    return;
+    return false;
   }
   if( p->nChar+N >= p->nAlloc ){
     char *zNew;
@@ -1247,7 +1260,7 @@ void MysqlDatabase::mysqlStrAccumAppend(StrAccum *p, const char *z, int N) {
     if( szNew > p->mxAlloc ){
       mysqlStrAccumReset(p);
       p->tooBig = 1;
-      return;
+      return false;
     }else{
       p->nAlloc = szNew;
     }
@@ -1259,11 +1272,22 @@ void MysqlDatabase::mysqlStrAccumAppend(StrAccum *p, const char *z, int N) {
     }else{
       p->mallocFailed = 1;
       mysqlStrAccumReset(p);
-      return;
+      return false;
     }
   }
+
+  bool isLike = false;
+  std::string testString(z, N);
+  if (testString.find("LIKE") != std::string::npos || testString.find("like") != std::string::npos)
+  {
+    CLog::Log(LOGDEBUG, "This query part contains a like, we will double backslash in the next field: %s", testString.c_str());
+    isLike = true;
+
+  }
+
   memcpy(&p->zText[p->nChar], z, N);
   p->nChar += N;
+  return isLike;
 }
 
 /*
@@ -1509,7 +1533,7 @@ int MysqlDataset::exec(const std::string &sql) {
   }
   else
   {
-    // TODO: collect results and store in exec_res
+    //! @todo collect results and store in exec_res
     return res;
   }
 }
