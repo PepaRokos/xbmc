@@ -535,3 +535,14 @@ void CGUIWindowPVRRecordings::OnPrepareFileItems(CFileItemList& items)
 
   CGUIWindowPVRBase::OnPrepareFileItems(items);
 }
+
+bool CGUIWindowPVRRecordings::OnMessageFocus(CGUIMessage &message)
+{
+  if (IsActive())
+  {
+    std::cout << "update rec" << std::endl;
+    g_PVRManager.TriggerRecordingsUpdate();
+  }
+
+  return CGUIWindowPVRCommon::OnMessageFocus(message);
+}
