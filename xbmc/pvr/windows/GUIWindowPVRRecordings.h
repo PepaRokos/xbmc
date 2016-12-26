@@ -1,4 +1,5 @@
 #pragma once
+
 /*
  *      Copyright (C) 2012-2013 Team XBMC
  *      http://xbmc.org
@@ -19,6 +20,7 @@
  *
  */
 
+#include "GUIWindowPVRCommon.h"
 #include "video/VideoThumbLoader.h"
 #include "video/VideoDatabase.h"
 
@@ -28,6 +30,8 @@ namespace PVR
 {
   class CGUIWindowPVRRecordings : public CGUIWindowPVRBase
   {
+    friend class CGUIWindowPVR;
+
   public:
     CGUIWindowPVRRecordings(bool bRadio);
     virtual ~CGUIWindowPVRRecordings(void) {};
@@ -47,6 +51,7 @@ namespace PVR
   protected:
     virtual std::string GetDirectoryPath(void) override;
     virtual void OnPrepareFileItems(CFileItemList &items) override;
+    virtual bool OnMessageFocus(CGUIMessage &message);
 
   private:
     bool ActionDeleteRecording(CFileItem *item);
@@ -58,6 +63,7 @@ namespace PVR
     bool OnContextButtonRename(CFileItem *item, CONTEXT_BUTTON button);
     bool OnContextButtonMarkWatched(const CFileItemPtr &item, CONTEXT_BUTTON button);
 
+    CStdString m_strSelectedPath;
     CVideoThumbLoader m_thumbLoader;
     CVideoDatabase m_database;
     bool m_bShowDeletedRecordings;
